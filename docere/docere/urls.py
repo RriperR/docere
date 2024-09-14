@@ -16,11 +16,15 @@ Including another URLconf
 """
 from xml.etree.ElementInclude import include
 
+from django.conf.urls import handler404
 from django.contrib import admin
 from django.urls import path, include
-from main.views import index
+from main.views import index, page_not_found
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('main.urls')),
 ]
+
+
+handler404 = page_not_found
