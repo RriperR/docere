@@ -1,10 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>cards</title>
-</head>
-<body>
+{% extends 'base.html' %}
+
+{% block content %}
 <h1>Просмотр карточек пациентов</h1>
 
 <ul>
@@ -12,9 +8,9 @@
   <li>
     <h2>{{ c.fullname }}</h2>
     <p>{{ c.phone }}</p>
+    <p><a href="{% url 'card' c.id %}">Подробнее</a></p>
     <hr>
   </li>
   {% endfor %}
 </ul>
-</body>
-</html>
+{% endblock %}
