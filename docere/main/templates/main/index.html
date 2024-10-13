@@ -1,5 +1,13 @@
 {% extends 'base.html' %}
 
+{% block header %}
+<header>
+    <h1>{{ title }}</h1>
+</header>
+{% endblock %}
+
 {% block content %}
-<h1>{{ title }}</h1>
+<div style="text-align: center; margin-top: 20px;">
+    <a href="{% url 'cards' %}" class="button">Посмотреть карточки</a>
+</div>
 {% endblock %}

@@ -1,5 +1,6 @@
 from django.http import HttpResponse, HttpResponseNotFound
 from django.shortcuts import render
+from datetime import datetime
 
 menu = [
     {'title' : 'О сайте', 'url_name' : 'about'},
@@ -14,12 +15,15 @@ data_db = [
     {'id':3, 'fullname' : 'Гаджиев Гаджи Гаджиевич', 'phone' : '+734563457'},
 ]
 
+
 def index(request):
     data = {
-        'title' : 'Главная страница',
-        'menu' : menu
+        'title': 'Главная страница',
+        'menu': menu,
+        'current_year': datetime.now().year
     }
     return render(request, 'main/index.html', data)
+
 
 def about(request):
     data = {

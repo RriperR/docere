@@ -1,16 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Просмотр карточек пациентов</h1>
-
-<ul>
-  {% for c in cards %}
-  <li>
-    <h2>{{ c.fullname }}</h2>
-    <p>{{ c.phone }}</p>
-    <p><a href="{% url 'card' c.id %}">Подробнее</a></p>
-    <hr>
-  </li>
-  {% endfor %}
-</ul>
+<h1 style="text-align: center; margin-bottom: 40px;">Наши карточки</h1>
+<div class="cards">
+    {% for card in cards %}
+    <div class="card">
+        <img src="https://source.unsplash.com/400x300/?portrait?sig={{ forloop.counter }}" alt="{{ card.fullname }}">
+        <div class="card-content">
+            <h2>{{ card.fullname }}</h2>
+            <p>Телефон: {{ card.phone }}</p>
+            <a href="{% url 'card' card.id %}" class="button">Подробнее</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
 {% endblock %}
