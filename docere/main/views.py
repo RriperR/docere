@@ -1,6 +1,8 @@
 from django.http import HttpResponse, HttpResponseNotFound
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from datetime import datetime
+
+from .models import Patients
 
 menu = [
     {'title' : 'О сайте', 'url_name' : 'about'},
@@ -48,7 +50,14 @@ def show_cards(request):
     return render(request, 'main/cards.html', context=data)
 
 def show_card(request, card_id):
-    return HttpResponse(f"Отображение карточки с id = {card_id}")
+    card = get_object_or_404(Patients, pk=card_id)
+
+    data = {
+        'title': card.title,
+        "menu":menu,
+        'card':card,
+    }
+    return render(request, 'main/card.html', context=data)
 
 def page_not_found(request, exception):
     return HttpResponseNotFound('<h1>Страница не найдена</h1>')
