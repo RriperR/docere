@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1 style="text-align: center; margin-bottom: 40px;">Наши карточки</h1>
+<h1 style="text-align: center; margin-bottom: 40px;">Пациенты</h1>
 <div class="cards">
     {% for card in cards %}
     <div class="card">
         <img src="https://source.unsplash.com/400x300/?portrait?sig={{ forloop.counter }}" alt="{{ card.fullname }}">
         <div class="card-content">
-            <h2>{{ card.fullname }}</h2>
+            <h2>{{ card.title }}</h2>
             <p>Телефон: {{ card.phone }}</p>
-            <a href="{% url 'card' card.id %}" class="button">Подробнее</a>
+            <a href="{{card.get_absolute_url}}" class="button">Подробнее</a>
         </div>
     </div>
     {% endfor %}
