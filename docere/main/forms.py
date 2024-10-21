@@ -7,7 +7,7 @@ from main.models import Patients, MedHistory
 class AddPatientForm(forms.ModelForm):
     class Meta:
         model = Patients
-        fields = '__all__'
+        fields = ['title', 'phone', 'photo']
 
 # class AddMedHistoryForm(forms.ModelForm):
 #     class Meta:

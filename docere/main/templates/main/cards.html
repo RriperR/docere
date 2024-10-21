@@ -5,7 +5,9 @@
 <div class="cards">
     {% for card in cards %}
     <div class="card">
-        <img src="https://source.unsplash.com/400x300/?portrait?sig={{ forloop.counter }}" alt="{{ card.fullname }}">
+        {% if card.photo %}
+        <img src="{{ card.photo.url }}" alt="{{ card.fullname }}">
+        {% endif %}
         <div class="card-content">
             <h2>{{ card.title }}</h2>
             <p>Телефон: {{ card.phone }}</p>

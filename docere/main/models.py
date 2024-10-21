@@ -4,7 +4,8 @@ from django.db import models
 
 class Patients(models.Model):
     title = models.CharField(max_length=255, verbose_name="ФИО")
-    phone = models.CharField(max_length=20, blank=True, verbose_name="Номер телефона")
+    phone = models.CharField(max_length=20, blank=True, verbose_name="Номер телефона", null=True)
+    photo = models.ImageField(upload_to="photos/%Y/%m/%d", default=None, blank=True, null=True, verbose_name='Фото')
     time_create = models.DateTimeField(auto_now_add=True)
     time_update = models.DateTimeField(auto_now=True)
 
@@ -24,3 +25,5 @@ class MedHistory(models.Model):
     def __str__(self):
         return self.time_create
 
+class UploadFiles(models.Model):
+    file  = models.FileField(upload_to='uploads_model')
