@@ -1,5 +1,6 @@
 menu = [
     {'title' : 'Добавить пациента', 'url_name' : 'add_patient'},
+    {'title' : 'Добавить информацию', 'url_name' : 'add_info'},
     {'title' : 'О сайте', 'url_name' : 'about'},
     {'title' : 'Обратная связь', 'url_name' : 'contact'},
     {'title' : 'Зарегистрироваться', 'url_name' : 'registration'},

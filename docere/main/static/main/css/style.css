@@ -103,6 +103,11 @@ header h1 {
     object-fit: cover;
 }
 
+.photo {
+    max-height: 360px;
+    margin: 20px 0 50px 0;
+}
+
 .card-content {
     padding: 20px;
 }

@@ -5,11 +5,12 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, FormView, CreateView, TemplateView
 
 from .forms import UploadFileForm, AddPatientForm
-from .models import Patients, UploadFiles
+from .models import Patients, MedHistory, UploadFiles
 from .utils import DataMixin
 
 menu = [
     {'title' : 'Добавить пациента', 'url_name' : 'add_patient'},
+    {'title' : 'Добавить информацию', 'url_name' : 'add_info'},
     {'title' : 'О сайте', 'url_name' : 'about'},
     {'title' : 'Обратная связь', 'url_name' : 'contact'},
     {'title' : 'Зарегистрироваться', 'url_name' : 'registration'},
@@ -31,6 +32,12 @@ class AddPatient(DataMixin, CreateView):
     success_url = reverse_lazy('home')
     title_page = 'Добавить пациента'
 
+class AddInfo(DataMixin, CreateView):
+    form_class = UploadFileForm
+    template_name = 'main/add_info.html'
+    success_url = reverse_lazy('home')
+    title_page = 'Добавить информацию'
+
 
 
 def contact(request):
@@ -51,13 +58,11 @@ class ShowCards(DataMixin, ListView):
 
 
 
-class ShowCard(DataMixin, CreateView):
+class ShowCard(DataMixin, ListView):
     model = Patients
     template_name = 'main/card.html'
     pk_url_kwarg = 'card_id'
     context_object_name = 'card'
-    form_class = UploadFileForm
-    success_url = reverse_lazy('home')
 
     def get_object(self):
         return get_object_or_404(Patients, pk=self.kwargs[self.pk_url_kwarg])
@@ -67,6 +72,7 @@ class ShowCard(DataMixin, CreateView):
         card = self.get_object()  # Получаем объект card
         context['card'] = card
         context['title'] = card.title
+        context['med_history'] = MedHistory.objects.filter(patient=card)  # Получаем связанную историю болезни
         return self.get_mixin_context(context)
 
 
