@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  cache:
+    image: redis
+    restart: always
+    volumes:
+      - redisdata:/data
+
+  web:
+    build: .
+    entrypoint: ["/entrypoint.sh", "uwsgi", "--ini", "./config/uwsgi/uwsgi.ini"]
+    restart: always
+
+    environment:
+      - DJANGO_SETTINGS_MODULE=docere.prod
+      - PYTHONPATH=/code
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    depends_on:
+      - db
+      - cache
+    volumes:
+      - uwsgi_socket:/tmp
+      - static_volume:/code/docere/static
+      - media_volume:/code/docere/media
+
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/nginx:/etc/nginx/templates
+      - uwsgi_socket:/tmp
+      - static_volume:/code/docere/static
+      - media_volume:/code/docere/media
+
+
+volumes:
+  pgdata:
+  redisdata:
+  uwsgi_socket:
+  static_volume:
+  media_volume:

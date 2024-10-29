@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>{{ card.title }}</h1>
+
+{% if card.photo %}
+<p><img class="photo" src="{{ card.photo.url }}"></p>
+{% endif %}
+
+{{ card.content|linebreaks }}
+
+<h2>История болезни:</h2>
+<ul>
+    {% for history in med_history %}
+    <li>{{ history.content }} — {{ history.time_create }}</li>
+    {% empty %}
+    <li>Нет записей истории болезни.</li>
+    {% endfor %}
+</ul>
+
+<form action="" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+</form>
+{% endblock %}
+

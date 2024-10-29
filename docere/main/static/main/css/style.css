@@ -1,0 +1,195 @@
+/* Подключение шрифта из Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+/* Общие стили */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #ECECECC2;
+    color: #2e3440;
+}
+
+/* Стили для навигационного меню */
+.navbar {
+    height: 80px;
+    background-color: #FFF;
+    padding: 20px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Эффект тени */
+}
+
+.navbar ul {
+    display: flex;
+    list-style: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.navbar li {
+    margin: 0 50px;
+}
+
+.navbar a {
+    text-decoration: none;
+    color: #424242;
+    font-weight: 600;
+    padding: 20px 0;
+    transition: color 0.3s;
+}
+
+.navbar a:hover {
+    color: #c7a109;
+}
+
+/* Главный заголовок */
+header {
+    background: #fcfcfc;
+    height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+}
+
+header h1 {
+    font-size: 48px;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 800px;
+    margin: 0 20px;
+}
+
+/* Основной контент */
+.container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+    min-height: 220px; /* Высота экрана за вычетом высоты футера и навигации */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Карточки */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+}
+
+.card {
+    background-color: #ffffff;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.photo {
+    max-height: 360px;
+    margin: 20px 0 50px 0;
+}
+
+.card-content {
+    padding: 20px;
+}
+
+.card-content h2 {
+    font-size: 22px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.card-content p {
+    font-size: 16px;
+    color: #555;
+    margin-bottom: 15px;
+}
+
+.card-content .button {
+    display: inline-block;
+    padding: 10px 20px;
+    background: linear-gradient(90deg, #dd783f 0%, #e5b909 100%);
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 30px;
+    transition: background 0.3s;
+}
+
+.card-content .button:hover {
+    background: linear-gradient(90deg, #e5b909 0%, #dd783f 100%);
+}
+
+/* Кнопка */
+.button {
+    display: inline-block;
+    padding: 12px 30px;
+    background: #c7a109;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 30px;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.button:hover {
+    background: #e5b909;
+}
+
+/* Футер */
+footer {
+    background-color: #777;
+    color: #d8dee9;
+    text-align: center;
+    padding: 25px 0;
+    margin-top: 60px;
+}
+
+footer p {
+    margin: 0;
+    margin-top: auto;
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.container, .navbar, footer, header {
+    animation: fadeIn 0.5s ease-in;
+}
+
+/* Адаптивный дизайн */
+@media (max-width: 768px) {
+    .navbar ul {
+        flex-direction: column;
+    }
+
+    .navbar li {
+        margin: 10px 0;
+    }
+
+    header h1 {
+        font-size: 32px;
+        padding: 0 20px;
+    }
+}

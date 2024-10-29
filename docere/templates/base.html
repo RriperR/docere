@@ -1,0 +1,34 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
+</head>
+<body>
+    <nav class="navbar">
+        <ul>
+            <li><a href="{% url 'home' %}">Главная</a></li>
+            {% for m in menu %}
+            <li>
+                <a href="{% url m.url_name %}">{{ m.title }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+
+    {% block header %}
+    {% endblock %}
+
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <footer>
+        <p>&copy; {{ current_year }} Docere site</p>
+    </footer>
+</body>
+</html>
