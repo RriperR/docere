@@ -1,9 +1,9 @@
 import os
 from .settings import *
 
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['docere.online', 'www.docere.online']
 
 DATABASES = {
     'default': {
@@ -22,3 +22,8 @@ CHANNEL_LAYERS['default']['CONFIG']['hosts'] = [REDIS_URL]
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Безопасность
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = True
