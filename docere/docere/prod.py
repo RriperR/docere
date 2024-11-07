@@ -3,7 +3,7 @@ from .settings import *
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['docere.online', 'www.docere.online']
+ALLOWED_HOSTS = ['docere.online', 'www.docere.online', 'localhost']
 
 DATABASES = {
     'default': {

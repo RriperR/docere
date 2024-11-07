@@ -2,11 +2,32 @@
 upstream uwsgi_app {
     server unix:/tmp/uwsgi_app.sock;
 }
+
 server {
     listen 80;
-    server_name docere.com www.docere.com;
+    server_name docere.online www.docere.online;
     error_log stderr warn;
     access_log /dev/stdout main;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;  # Перенаправление всех HTTP-запросов на HTTPS
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name docere.online www.docere.online;
+    error_log stderr warn;
+    access_log /dev/stdout main;
+
+    ssl_certificate /etc/letsencrypt/live/docere.online/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/docere.online/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384';
 
     location / {
         include /etc/nginx/uwsgi_params;
@@ -15,7 +36,8 @@ server {
 
     location /static/ {
         alias /code/docere/static/;
-        }
+    }
+
     location /media/ {
         alias /code/docere/media/;
     }
