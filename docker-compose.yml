@@ -47,6 +47,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
       - uwsgi_socket:/tmp
+      - ./logs/nginx:/var/log/nginx
       - static_volume:/code/docere/static
       - media_volume:/code/docere/media
     depends_on:
