@@ -8,7 +8,6 @@ variables:
   DOCKER_TAG: "latest"
 
 before_script:
-  # Логин в Docker Hub
   - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
 
 build:
