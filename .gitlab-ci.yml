@@ -14,7 +14,7 @@ before_script:
 build:
   stage: build
   script:
-    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA . # Собираем образ с тегом текущего коммита
+    - docker build --network="host" -t $DOCKER_IMAGE:$CI_COMMIT_SHA . # Собираем образ с тегом текущего коммита
     - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:$DOCKER_TAG # Тегируем его как "latest"
     - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA # Пушим образ с тегом коммита
     - docker push $DOCKER_IMAGE:$DOCKER_TAG # Пушим образ с тегом "latest"
