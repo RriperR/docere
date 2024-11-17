@@ -26,5 +26,5 @@ deploy:
   script:
     - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "echo 'Deploying the application...'" # Просто подключаемся для выполнения команд на сервере
   environment:
-    name: production
+    name: prod
     url: http://yourwebsite.com
