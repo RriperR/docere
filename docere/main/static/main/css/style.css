@@ -1,4 +1,3 @@
-/* Подключение шрифта из Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 /* Общие стили */
@@ -16,13 +15,15 @@ body {
 
 /* Стили для навигационного меню */
 .navbar {
+    display: flex;
+    align-items: center;
     height: 80px;
     background-color: #FFF;
-    padding: 20px 20px;
+    padding: 0 20px;
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Эффект тени */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .navbar ul {
