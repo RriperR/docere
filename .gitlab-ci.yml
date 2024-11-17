@@ -1,23 +1,30 @@
-build-job:
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_IMAGE: "riper3d/docere_proj"
+  DOCKER_REGISTRY: "docker.io"
+  DOCKER_TAG: "latest"
+
+before_script:
+  # Логин в Docker Hub
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+
+build:
   stage: build
   script:
-    - echo "Hello, $GITLAB_USER_LOGIN!"
+    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA . # Собираем образ с тегом текущего коммита
+    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:$DOCKER_TAG # Тегируем его как "latest"
+    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA # Пушим образ с тегом коммита
+    - docker push $DOCKER_IMAGE:$DOCKER_TAG # Пушим образ с тегом "latest"
 
-test-job1:
-  stage: test
-  script:
-    - echo "This job tests something"
-
-test-job2:
-  stage: test
-  script:
-    - echo "This job tests something, but takes more time than test-job1."
-    - echo "After the echo commands complete, it runs the sleep command for 20 seconds"
-    - echo "which simulates a test that runs 20 seconds longer than test-job1"
-    - sleep 20
-
-deploy-prod:
+deploy:
   stage: deploy
+  only:
+    - main
   script:
-    - echo "This job deploys something from the $CI_COMMIT_BRANCH branch."
-  environment: production
+    - ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "echo 'Deploying the application...'" # Просто подключаемся для выполнения команд на сервере
+  environment:
+    name: production
+    url: http://yourwebsite.com
