@@ -26,4 +26,4 @@ deploy:
     - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
   environment:
     name: prod
-    url: http://yourwebsite.online
+    url: https://yourwebsite.online
