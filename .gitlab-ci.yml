@@ -23,7 +23,7 @@ deploy:
   only:
     - main
   script:
-    - ssh -i ~/.ssh/id_rsa_ci -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
   environment:
     name: prod
     url: http://yourwebsite.com
