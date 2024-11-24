@@ -8,8 +8,7 @@ variables:
   DOCKER_TAG: "latest"
 
 before_script:
-  - docker info
-  - echo "Подключение к Docker успешно!"
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
 
 build:
   stage: build
@@ -24,7 +23,7 @@ deploy:
   only:
     - main
   script:
-    - ssh -i /home/gitlab-runner/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
   environment:
     name: prod
     url: https://mywebsite.online
