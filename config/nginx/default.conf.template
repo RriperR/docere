@@ -1,4 +1,5 @@
-limit_req_zone $binary_remote_addr zone=attackers:10m rate=3r/s;
+# Ограничение скорости запросов
+limit_req_zone $binary_remote_addr zone=attackers:10m rate=1r/s;
 
 # Настройка для uWSGI
 upstream uwsgi_app {
@@ -11,7 +12,8 @@ server {
     error_log /var/log/nginx/error.log warn;
     access_log /var/log/nginx/access.log main;
 
-    limit_req zone=attackers burst=5 nodelay;
+    # Ограничение скорости запросов
+    limit_req zone=attackers burst=3 nodelay;
 
     # Маршрут для проверки Let's Encrypt
     location /.well-known/acme-challenge/ {
@@ -35,6 +37,26 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/docere.online/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384';
+
+    # Ограничение скорости запросов
+    limit_req zone=attackers burst=3 nodelay;
+
+    # Блокировка доступа к известным вредоносным путям
+    location ~* /(test|tests|testing|api|demo|cms|crm|admin|backup|blog|workspace|drupal|panel|public|apps|app)/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php {
+        return 444;
+    }
+
+    location ~* /index\.php {
+        return 444;
+    }
+
+    location ~* /GponForm/diag_Form? {
+        return 444;
+    }
+
+    location ~* /boaform/admin/formLogin? {
+        return 444;
+    }
 
     # Проксирование запросов к uWSGI
     location / {

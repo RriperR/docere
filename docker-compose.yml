@@ -5,17 +5,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
 
-  cache:
-    image: redis
-    restart: always
-    volumes:
-      - redisdata:/data
 
   web:
     image: riper3d/docere_proj
