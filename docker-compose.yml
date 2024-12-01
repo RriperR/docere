@@ -25,7 +25,6 @@ services:
       - POSTGRES_PASSWORD=postgres
     depends_on:
       - db
-      - cache
     volumes:
       - uwsgi_socket:/tmp
       - static_volume:/code/docere/static

@@ -4,18 +4,10 @@ from django.urls import reverse_lazy
 
 from django.views.generic import ListView, FormView, CreateView, TemplateView
 
-from .forms import UploadFileForm, AddPatientForm
+from .forms import AddMedHistory, AddPatientForm, UploadFileForm
 from .models import Patients, MedHistory, UploadFiles
 from .utils import DataMixin
 
-menu = [
-    {'title' : 'Добавить пациента', 'url_name' : 'add_patient'},
-    {'title' : 'Добавить информацию', 'url_name' : 'add_info'},
-    {'title' : 'О сайте', 'url_name' : 'about'},
-    {'title' : 'Обратная связь', 'url_name' : 'contact'},
-    {'title' : 'Зарегистрироваться', 'url_name' : 'registration'},
-    {'title' : 'Войти', 'url_name' : 'login'},
-]
 
 class MainPage(DataMixin, TemplateView):
     title_page = 'Главная страница'
@@ -26,6 +18,13 @@ class AboutPage(DataMixin, TemplateView):
     template_name = 'main/about.html'
 
 
+class UploadInfo(DataMixin, CreateView):
+    form_class = UploadFileForm
+    template_name = 'main/upload.html'
+    success_url = reverse_lazy('home')
+    title_page = 'Загрузить данные'
+
+
 class AddPatient(DataMixin, CreateView):
     form_class = AddPatientForm
     template_name = 'main/add_patient.html'
@@ -33,7 +32,7 @@ class AddPatient(DataMixin, CreateView):
     title_page = 'Добавить пациента'
 
 class AddInfo(DataMixin, CreateView):
-    form_class = UploadFileForm
+    form_class = AddMedHistory
     template_name = 'main/add_info.html'
     success_url = reverse_lazy('home')
     title_page = 'Добавить информацию'

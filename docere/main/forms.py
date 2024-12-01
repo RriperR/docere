@@ -1,7 +1,7 @@
 from django import forms
 from phonenumber_field.formfields import PhoneNumberField
 
-from main.models import Patients, MedHistory
+from main.models import Patients, MedHistory, UploadFiles
 
 
 class AddPatientForm(forms.ModelForm):
@@ -9,14 +9,15 @@ class AddPatientForm(forms.ModelForm):
         model = Patients
         fields = ['title', 'phone', 'photo']
 
-# class AddMedHistoryForm(forms.ModelForm):
-#     class Meta:
-#         model = MedHistory
-#         fields = '__all__'
 
+class AddMedHistory(forms.ModelForm):
+    class Meta:
+        model = MedHistory
+        fields = '__all__'
+    file = forms.FileField(label="Файл", required=False)
 
 class UploadFileForm(forms.ModelForm):
     class Meta:
-        model = MedHistory
+        model = UploadFiles
         fields = '__all__'
     file = forms.FileField(label="Файл", required=False)

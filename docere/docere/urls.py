@@ -8,6 +8,7 @@ from main.views import page_not_found
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('main.urls')),
+    path('users/', include('users.urls')),
 ]
 
 if settings.DEBUG:
