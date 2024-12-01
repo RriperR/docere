@@ -1,8 +1,6 @@
 from django import forms
-from phonenumber_field.formfields import PhoneNumberField
 
-from main.models import Patients, MedHistory, UploadFiles
-
+from .models import Patients, MedHistory, UploadFiles
 
 class AddPatientForm(forms.ModelForm):
     class Meta:
