@@ -50,7 +50,6 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
   uwsgi_socket:
   static_volume:
   media_volume:

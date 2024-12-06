@@ -16,9 +16,6 @@ DATABASES = {
     }
 }
 
-REDIS_URL = 'redis://cache:6379'
-CACHES['default']['LOCATION'] = REDIS_URL
-CHANNEL_LAYERS['default']['CONFIG']['hosts'] = [REDIS_URL]
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
