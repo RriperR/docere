@@ -1,5 +1,6 @@
 stages:
   - build
+  - test
   - deploy
 
 variables:
@@ -18,6 +19,11 @@ build:
     - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA
     - docker push $DOCKER_IMAGE:$DOCKER_TAG
 
+test:
+  stage: test
+  script:
+    - echo "Test stage passed"
+
 deploy:
   stage: deploy
   only:
@@ -26,4 +32,4 @@ deploy:
     - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
   environment:
     name: prod
-    url: https://mywebsite.online
+    url: https://docere.online
