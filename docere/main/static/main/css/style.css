@@ -105,9 +105,118 @@ header h1 {
     object-fit: cover;
 }
 
-.photo {
-    max-height: 360px;
-    margin: 20px 0 50px 0;
+/* Блок: Паспорт */
+.pasport {
+    display: flex; /* Горизонтальное расположение элементов */
+    align-items: center; /* Выравниваем элементы по вертикали по центру */
+    justify-content: space-between; /* Разделяем фото и детали */
+    padding: 20px; /* Внутренние отступы */
+    border: 1px solid #ccc; /* Граница */
+    border-radius: 10px; /* Скруглённые углы */
+    background-color: #f9f9f9; /* Светло-серый фон */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Тень */
+    margin-bottom: 20px; /* Отступ снизу */
+}
+
+/* Элемент: Фото */
+.pasport__photo {
+    width: 100px; /* Фиксированная ширина */
+    height: 100px; /* Фиксированная высота */
+    object-fit: cover; /* Заполнение без искажения */
+    border-radius: 50%; /* Круглая форма */
+    margin-right: 20px; /* Отступ справа */
+    flex-shrink: 0; /* Запрещаем уменьшение */
+}
+
+/* Элемент: Детали */
+.pasport__details {
+    flex: 1; /* Занимает оставшееся пространство */
+    display: flex; /* Flexbox для вертикального расположения текста */
+    flex-direction: column; /* Вертикальное направление */
+    gap: 10px; /* Расстояние между текстовыми элементами */
+    font-size: 16px; /* Общий размер шрифта */
+    color: #333; /* Цвет текста */
+}
+
+/* Элемент: Имя */
+.pasport__name {
+    font-size: 24px; /* Увеличенный шрифт */
+    font-weight: bold; /* Жирное начертание */
+    margin-bottom: 10px; /* Отступ снизу */
+}
+
+/* Элемент: Контакты */
+.pasport__contact {
+    font-size: 14px; /* Меньший размер шрифта */
+    color: #666; /* Более светлый цвет текста */
+    margin: 0; /* Убираем внешние отступы */
+}
+
+
+.medhistory {
+    margin: 20px 0;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+}
+
+.medhistory__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.medhistory__item {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 20px;
+}
+
+.medhistory__item:last-child {
+    border-bottom: none;
+}
+
+.medhistory__time {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.medhistory__details {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.medhistory__doc, .medhistory__hospital, .medhistory__comment {
+    flex: 1;
+}
+
+.medhistory__lab {
+    flex: 0 0 150px;
+}
+
+.medhistory__thumbnail {
+    max-height: 100px;
+    border-radius: 5px;
+}
+
+.medhistory__download {
+    font-size: 14px;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.medhistory__download:hover {
+    text-decoration: underline;
+}
+
+
+
+.thumbnail {
+    max-height: 100px;
 }
 
 .card-content {

@@ -1,26 +1,61 @@
 {% extends 'base.html' %}
+{% load file_extras %}
 
 {% block content %}
-<h1>{{ card.title }}</h1>
 
-{% if card.photo %}
-<p><img class="photo" src="{{ card.photo.url }}"></p>
-{% endif %}
+<div class="pasport">
+    {% if card.photo %}
+    <img class="pasport__photo" src="{{ card.photo.url }}" alt="Фото пациента">
+    {% endif %}
+    <div class="pasport__details">
+        <p class="pasport__name">{{ card.title }}</p>
+        <p class="pasport__contact">Возраст: {{ card.age }}</p>
+        <p class="pasport__contact">Тел.: {{ card.phone }}</p>
+        <p class="pasport__contact">E-mail: {{ card.email }}</p>
+    </div>
+</div>
 
-{{ card.content|linebreaks }}
+<div class="medhistory">
+    <ul class="medhistory__list">
+        {% for history in med_history %}
+        <li class="medhistory__item">
+            <div class="medhistory__time">
+                <p>{{ history.time_create|date:"d.m.Y H:i" }}</p>
+            </div>
 
-<h2>История болезни:</h2>
-<ul>
-    {% for history in med_history %}
-    <li>{{ history.content }} — {{ history.time_create }}</li>
-    {% empty %}
-    <li>Нет записей истории болезни.</li>
-    {% endfor %}
-</ul>
+            <div class="medhistory__details">
+                <div class="medhistory__doc">
+                    <p><strong>Доктор</strong> <br> {{ history.doctor_name }}</p>
+                    <p><strong>Специализация</strong> <br> {{ history.doctor_specialization }}</p>
+                </div>
 
-<form action="" method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  {{ form.as_p }}
-</form>
+                <div class="medhistory__hospital">
+                    <p><strong>Место приёма</strong> <br> {{ history.appointment_location }}</p>
+                    <p><strong>Специализация учреждения</strong> <br> {{ history.institution_specialization }}</p>
+                </div>
+
+                <div class="medhistory__comment">
+                    <p><strong>Комментарий / Заключение</strong></p>
+                    <p>{{ history.content|linebreaks }}</p>
+                </div>
+
+                {% if history.lab_data %}
+                <div class="medhistory__lab">
+                    <p><strong>Лабораторные данные:</strong></p>
+                    {% if history.lab_data|file_extension:"image" %}
+                        <img class="medhistory__thumbnail" src="{{ history.lab_data.url }}" alt="Лабораторные данные">
+                    {% else %}
+                        <a href="{{ history.lab_data.url }}" class="medhistory__download" download>Скачать файл</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="medhistory__empty">Нет записей истории болезни.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+
 {% endblock %}
-
