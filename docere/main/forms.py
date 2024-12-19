@@ -12,7 +12,6 @@ class AddMedHistory(forms.ModelForm):
     class Meta:
         model = MedHistory
         fields = '__all__'
-    file = forms.FileField(label="Файл", required=False)
 
 class UploadFileForm(forms.ModelForm):
     class Meta:

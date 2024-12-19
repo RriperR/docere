@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1 style="text-align: center; margin-bottom: 40px;">Пациенты</h1>
+<h1 class="cards__title">Пациенты</h1>
 <div class="cards">
     {% for card in cards %}
-    <div class="card">
+    <div class="cards__item">
         {% if card.photo %}
-        <img src="{{ card.photo.url }}" alt="{{ card.fullname }}">
+        <img class="cards__image" src="{{ card.photo.url }}" alt="{{ card.fullname }}">
         {% endif %}
-        <div class="card-content">
-            <h2>{{ card.title }}</h2>
-            <p>Телефон: {{ card.phone }}</p>
-            <a href="{{card.get_absolute_url}}" class="button">Подробнее</a>
+        <div class="cards__content">
+            <h2 class="cards__name">{{ card.title }}</h2>
+            <p class="cards__phone">Телефон: {{ card.phone }}</p>
+            <a href="{{ card.get_absolute_url }}" class="cards__button">Подробнее</a>
         </div>
     </div>
     {% endfor %}

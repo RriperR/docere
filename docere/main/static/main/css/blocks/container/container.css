@@ -1,0 +1,9 @@
+.container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+    min-height: 220px; /* Высота экрана за вычетом высоты футера и навигации */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}

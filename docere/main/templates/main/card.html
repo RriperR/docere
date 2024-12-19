@@ -45,7 +45,14 @@
                     {% if history.lab_data|file_extension:"image" %}
                         <img class="medhistory__thumbnail" src="{{ history.lab_data.url }}" alt="Лабораторные данные">
                     {% else %}
-                        <a href="{{ history.lab_data.url }}" class="medhistory__download" download>Скачать файл</a>
+                        <a class="link_orange" href="{{ history.lab_data.url }}" download>
+                            <div class="history-lab__file">
+                                <span class="icon">📄</span>
+                            </div>
+                            {% load main_tags %}
+                            <p class="history-lab__filename">{{ history.lab_data.name|filename }}</p>
+                        </a>
+
                     {% endif %}
                 </div>
                 {% endif %}

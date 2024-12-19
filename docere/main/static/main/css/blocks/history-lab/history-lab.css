@@ -1,0 +1,32 @@
+
+.history-lab {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.history-lab__thumbnail {
+    max-width: 150px; /* Максимальная ширина миниатюры */
+    max-height: 150px; /* Максимальная высота миниатюры */
+    border-radius: 8px; /* Лёгкое скругление углов */
+    margin-bottom: 5px; /* Отступ под миниатюрой */
+}
+
+.history-lab__file {
+    display: inline-block;
+    width: 80px; /* Размер иконки */
+    height: 80px;
+    background-color: #f0f0f0; /* Фон иконки */
+    border-radius: 8px; /* Скругление углов */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px; /* Размер иконки */
+    color: #666; /* Цвет текста иконки */
+    margin-bottom: 5px; /* Отступ под иконкой */
+}
+
+.history-lab__filename {
+    font-size: 14px; /* Размер шрифта для имени файла */
+
+    word-break: break-word; /* Перенос длинных названий */
+}
