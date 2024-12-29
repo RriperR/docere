@@ -10,4 +10,5 @@ urlpatterns = [
     path('contact/', views.contact, name='contact'),
     path('cards/', views.ShowCards.as_view(), name='cards'),
     path('card/<int:card_id>', views.ShowCard.as_view(), name='card'),
+    path('process-zip/', views.process_zip, name='process_zip'),
 ]

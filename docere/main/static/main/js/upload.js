@@ -36,8 +36,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // Обрабатываем выбор файла через input
     input.addEventListener('change', () => {
         if (input.files.length > 0) {
-            const fileName = input.files[0].name;
-            fileNameDisplay.textContent = `Выбран файл: ${fileName}`; // Отображаем имя файла
+            handleFileUpload(input.files[0]); // Обрабатываем выбранный файл
         }
     });
+
+    // Обработка файла
+    function handleFileUpload(file) {
+        if (file.type !== 'application/zip') {
+            alert('Пожалуйста, загрузите ZIP-архив.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/process-zip/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Архив обработан успешно.');
+                console.log('Результат:', data.result);
+            } else {
+                alert('Ошибка при обработке: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при загрузке.');
+        });
+    }
+
+    function getCSRFToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
 });
