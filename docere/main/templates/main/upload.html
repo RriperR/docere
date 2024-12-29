@@ -1,14 +1,13 @@
 {% extends 'base.html' %}
-
 {% block content %}
 <div class="upload-container">
     <h1>{{ title }}</h1>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" id="upload-form">
         {% csrf_token %}
-        <div class="form-group">
-            <label for="id_file">Загрузите ZIP-архив:</label>
-            {{ form.file }}
+        <div class="dropzone">
+            <p class="dropzone__text">Перетащите ZIP-файл сюда или нажмите, чтобы выбрать файл</p>
+            <input type="file" name="file" class="dropzone__input">
         </div>
         <button type="submit" class="btn">Загрузить</button>
     </form>
@@ -24,5 +23,7 @@
         </ul>
     </div>
     {% endif %}
+    {% load static %}
+    <script src="{% static 'main/js/upload.js' %}" defer></script>
 </div>
 {% endblock %}
