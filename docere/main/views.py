@@ -1,6 +1,8 @@
 import os
 import zipfile
 import re
+import tempfile
+import shutil
 
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -84,7 +86,6 @@ def page_not_found(request, exception):
     return HttpResponseNotFound('<h1>Страница не найдена</h1>')
 
 def process_zip(request):
-    print('function process_zip processing...')
     if request.method == 'POST':
         try:
             # Получаем загруженный файл
@@ -93,12 +94,15 @@ def process_zip(request):
                 return JsonResponse({'success': False, 'error': 'Файл должен быть ZIP-архивом'})
 
             # Сохраняем временный файл
-            zip_path = f'/tmp/{uploaded_file.name}'
+            print('Сохраняем временный файл')
+            temp_dir = tempfile.gettempdir()
+            zip_path = os.path.join(temp_dir, uploaded_file.name)
             with open(zip_path, 'wb') as temp_file:
                 for chunk in uploaded_file.chunks():
                     temp_file.write(chunk)
 
             # Извлекаем архив
+            print('Извлекаем архив')
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 extracted_path = f'/tmp/extracted_{uploaded_file.name}'
                 zip_ref.extractall(extracted_path)
@@ -143,8 +147,8 @@ def process_zip(request):
 
 
             # Удаляем временные файлы
-            os.remove(zip_path)
-            os.rmdir(extracted_path)
+            os.remove(zip_path)  # Удаляем сам ZIP-файл
+            shutil.rmtree(extracted_path, ignore_errors=True)  # Рекурсивно удаляем директорию
 
             return JsonResponse({'success': True, 'result': file_data})
 
