@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import file_processing
 
 urlpatterns = [
     path('', views.MainPage.as_view(), name='home'),
@@ -10,5 +11,6 @@ urlpatterns = [
     path('contact/', views.contact, name='contact'),
     path('cards/', views.ShowCards.as_view(), name='cards'),
     path('card/<int:card_id>', views.ShowCard.as_view(), name='card'),
-    path('process-zip/', views.process_zip, name='process_zip'),
+    path('process-zip/', file_processing.process_zip, name='process_zip'),
+    path('confirm-fio/', file_processing.confirm_fio, name='confirm_fio'),
 ]
