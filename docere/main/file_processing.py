@@ -4,34 +4,46 @@ import re
 import tempfile
 import shutil
 from datetime import datetime
+import json
+import string
 
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
 from PIL import Image
 from PIL.ExifTags import TAGS
 
 from .models import Patients, MedHistory
 
-def extract_fio_and_dob(text):
+def extract_fio(text):
     fio_pattern = r'(?:^|[ \-_])([а-яА-ЯёЁ]+(?:-[а-яА-ЯёЁ]+)?[ \-_][а-яА-ЯёЁ]+[ \-_][а-яА-ЯёЁ]+(?:ович|евич|овна|евна|ична|инична))'
-    dob_pattern = r'(\d{2}-\d{2}-\d{4}|\d{2}\.\d{2}\.\d{4})'
 
     fios = re.findall(fio_pattern, text)
-    dobs = re.findall(dob_pattern, text)
 
-    return fios, dobs
+    return fios
 
+def extract_dob(text):
+    import dateparser
+    date_pattern = r'\b(?:\d{1,2}\s[а-яА-Я]+\s\d{4}|\d{1,2}[./]\d{1,2}[./]\d{4})\b'
+    # Поиск всех дат в тексте
+    date_strings = re.findall(date_pattern, text)
 
-def extract_contacts(text):
+    # Распознавание дат
+    birth_dates = [dateparser.parse(date, languages=['ru']) for date in date_strings]
+    birth_dates_str = [i.strftime('%d.%m.%Y') for i in birth_dates]
+    return birth_dates_str
+
+def extract_phone(text):
     phone_pattern = r'\+?\d{1,3}?[-.\s]??\(?\d{1,4}?\)?[-.\s]??\d{1,4}[-.\s]??\d{1,9}'
-    email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
     phones = re.findall(phone_pattern, text)
+    return phones
+
+def extract_email(text):
+    email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
     emails = re.findall(email_pattern, text)
-    return phones, emails
+    return emails
 
 def get_exif_date(image_path):
-    """
-    Извлекает дату из метаданных EXIF изображения.
-    """
     try:
         image = Image.open(image_path)
         exif_data = image._getexif()
@@ -45,6 +57,36 @@ def get_exif_date(image_path):
         return None
     return None
 
+def is_readable(filename):
+    readable_characters = string.ascii_letters + string.digits + string.punctuation + ' ' + 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+    return all(char in readable_characters for char in filename)
+
+def decode_filename(filename):
+    """
+    Пробует декодировать имя файла с использованием нескольких стратегий.
+    """
+    # Проверяем, является ли имя читаемым
+    if is_readable(filename):
+        print(f"Имя файла уже корректное: {filename}")
+        return filename
+
+    # Если имя не читаемое, пробуем другие кодировки
+    encodings = ['cp866', 'windows-1251', 'latin1']
+    for encoding in encodings:
+        try:
+            decoded = filename.encode('cp437').decode(encoding)
+            if is_readable(decoded):
+                print(f"Имя файла успешно декодировано как {encoding}: {decoded}")
+                return decoded
+        except UnicodeDecodeError as e:
+            print(f"Ошибка декодирования с {encoding}: {e}")
+            continue
+
+    # Если ни одна из кодировок не подошла, возвращаем с заменой символов
+    print(f"Не удалось корректно декодировать имя файла")
+    return filename
+
+
 def process_zip(request):
     if request.method == 'POST':
         try:
@@ -52,7 +94,7 @@ def process_zip(request):
             if not uploaded_file.name.endswith('.zip'):
                 return JsonResponse({'success': False, 'error': 'Файл должен быть ZIP-архивом'})
 
-            # Создаём путь для временного файла
+            # Создаём временные пути
             temp_dir = tempfile.gettempdir()
             zip_path = os.path.join(temp_dir, uploaded_file.name)
 
@@ -61,27 +103,32 @@ def process_zip(request):
                 for chunk in uploaded_file.chunks():
                     temp_file.write(chunk)
 
-            # Путь для извлечённых данных
             extracted_path = os.path.join(temp_dir, f"extracted_{uploaded_file.name}")
 
-            # Работаем с архивом
+            # Извлечение архива
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(extracted_path)
+                for file_info in zip_ref.infolist():
+                    try:
+                        # Декодируем имя файла
+                        file_info.filename = decode_filename(file_info.filename)
+                    except Exception as e:
+                        print(f"Ошибка декодирования имени файла: {e}")
+                        continue
+                    zip_ref.extract(file_info, extracted_path)
 
-            # Анализ содержимого
+            # Обработка содержимого
             all_fios = []
+            print("Извлечённые файлы и папки:")
             for root, dirs, files in os.walk(extracted_path):
-                for dir_name in dirs:
-                    fios, _ = extract_fio_and_dob(dir_name)
-                    print(f"Извлечено из папки '{dir_name}': {fios}")
-                    all_fios.extend(fios)
-
+                print("Папка:", root)
+                print("Подпапки:", dirs)
+                print("Файлы:", files)
                 for file_name in files:
-                    fios, _ = extract_fio_and_dob(file_name)
-                    print(f"Извлечено из файла '{file_name}': {fios}")
+                    fios = extract_fio(file_name)
                     all_fios.extend(fios)
 
-            all_fios = list(set(all_fios))  # Удаляем дубликаты
+            # Удаляем дубликаты
+            all_fios = list(set(all_fios))
 
             if len(all_fios) > 0:
                 return JsonResponse({'success': True, 'fios': all_fios})
@@ -103,10 +150,6 @@ def process_zip(request):
 
     return JsonResponse({'success': False, 'error': 'Метод запроса должен быть POST'})
 
-
-
-from django.views.decorators.csrf import csrf_exempt
-import json
 
 @csrf_exempt
 def confirm_fio(request):
