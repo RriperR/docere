@@ -24,3 +24,5 @@ wcwidth==0.2.13
 psycopg2-binary~=2.9.9
 uwsgi
 dateparser
+celery[redis]==5.4.0
+redis==5.2.1

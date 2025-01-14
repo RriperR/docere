@@ -5,7 +5,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:15432:5432"
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
@@ -25,11 +25,12 @@ services:
       - POSTGRES_PASSWORD=postgres
     depends_on:
       - db
+      - redis
     volumes:
       - uwsgi_socket:/tmp
       - static_volume:/code/docere/static
       - media_volume:/code/docere/media
-      - /home/docere_user/djangoProject1/code/prod.py:/code/docere/docere/prod.py
+      # - /home/docere_user/djangoProject1/code/prod.py:/code/docere/docere/prod.py
 
   nginx:
     image: nginx
@@ -48,7 +49,29 @@ services:
       - web
     restart: always
 
+  redis:
+    image: redis
+    hostname: redis
+
+
+  worker:
+    image: riper3d/docere_proj
+    hostname: worker
+    environment:
+      - DJANGO_SETTINGS_MODULE=docere.prod  # Adjust this to match your actual settings file
+      - PYTHONPATH=/code
+    entrypoint: celery
+    command: -A docere worker --loglevel=info  # Make sure this matches your app structure
+    volumes:
+      - ./docere:/code  # Mount the `docere` directory to `/code`
+    links:
+      - redis
+    depends_on:
+      - redis
+
+
 volumes:
+  code_volume:
   pgdata:
   uwsgi_socket:
   static_volume:
