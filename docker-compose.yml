@@ -69,6 +69,23 @@ services:
     depends_on:
       - redis
 
+  flower:
+    image: riper3d/docere_proj
+    hostname: flower
+    environment:
+      - DJANGO_SETTINGS_MODULE=docere.prod
+      - PYTHONPATH=/code
+    entrypoint: celery
+    command: -A docere flower
+    volumes:
+      - ./docere:/code
+    links:
+      - redis
+    depends_on:
+      - redis
+    ports:
+      - "5555:5555"
+
 
 volumes:
   code_volume:
