@@ -13,7 +13,6 @@ services:
 
 
   web:
-    image: riper3d/docere_proj
     entrypoint: ["/entrypoint.sh", "uwsgi", "--ini", "./config/uwsgi/uwsgi.ini"]
     restart: always
 

@@ -1,11 +1,10 @@
-from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
-from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse, HttpResponseNotFound
+from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
-from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import ListView, FormView, CreateView, TemplateView
+from django.views.generic import ListView, CreateView, TemplateView
 
 from .forms import AddMedHistory, AddPatientForm, UploadFileForm
-from .models import Patients, MedHistory, UploadFiles
+from .models import Patients, MedHistory
 from .utils import DataMixin
 
 
@@ -78,4 +77,3 @@ class ShowCard(DataMixin, ListView):
 
 def page_not_found(request, exception):
     return HttpResponseNotFound('<h1>Страница не найдена</h1>')
-

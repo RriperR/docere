@@ -1,0 +1,3 @@
+services:
+  web:
+    image: riper3d/docere_proj
