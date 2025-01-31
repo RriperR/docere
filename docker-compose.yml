@@ -10,6 +10,11 @@ services:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      retries: 5
+      timeout: 3s
 
 
   web:
@@ -23,13 +28,28 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      #- redis
     volumes:
       - uwsgi_socket:/tmp
       - static_volume:/code/docere/static
       - media_volume:/code/docere/media
       # - /home/docere_user/djangoProject1/code/prod.py:/code/docere/docere/prod.py
+
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - react_build:/react/dist
+    command: sh -c "rm -rf /react/dist/* && npm run build"
+    depends_on:
+      - web
+
 
   nginx:
     image: nginx
@@ -44,46 +64,47 @@ services:
       - ./logs/nginx:/var/log/nginx
       - static_volume:/code/docere/static
       - media_volume:/code/docere/media
+      - react_build:/var/www/react
     depends_on:
       - web
     restart: always
 
-  redis:
-    image: redis
-    hostname: redis
-
-
-  worker:
-    image: riper3d/docere_proj
-    hostname: worker
-    environment:
-      - DJANGO_SETTINGS_MODULE=docere.prod  # Adjust this to match your actual settings file
-      - PYTHONPATH=/code
-    entrypoint: celery
-    command: -A docere worker --loglevel=info  # Make sure this matches your app structure
-    volumes:
-      - ./docere:/code  # Mount the `docere` directory to `/code`
-    links:
-      - redis
-    depends_on:
-      - redis
-
-  flower:
-    image: riper3d/docere_proj
-    hostname: flower
-    environment:
-      - DJANGO_SETTINGS_MODULE=docere.prod
-      - PYTHONPATH=/code
-    entrypoint: celery
-    command: -A docere flower
-    volumes:
-      - ./docere:/code
-    links:
-      - redis
-    depends_on:
-      - redis
-    ports:
-      - "5555:5555"
+#  redis:
+#    image: redis
+#    hostname: redis
+#
+#
+#  worker:
+#    image: riper3d/docere_proj
+#    hostname: worker
+#    environment:
+#      - DJANGO_SETTINGS_MODULE=docere.prod  # Adjust this to match your actual settings file
+#      - PYTHONPATH=/code
+#    entrypoint: celery
+#    command: -A docere worker --loglevel=info  # Make sure this matches your app structure
+#    volumes:
+#      - ./docere:/code  # Mount the `docere` directory to `/code`
+#    links:
+#      - redis
+#    depends_on:
+#      - redis
+#
+#  flower:
+#    image: riper3d/docere_proj
+#    hostname: flower
+#    environment:
+#      - DJANGO_SETTINGS_MODULE=docere.prod
+#      - PYTHONPATH=/code
+#    entrypoint: celery
+#    command: -A docere flower
+#    volumes:
+#      - ./docere:/code
+#    links:
+#      - redis
+#    depends_on:
+#      - redis
+#    ports:
+#      - "5555:5555"
 
 
 volumes:
@@ -92,3 +113,4 @@ volumes:
   uwsgi_socket:
   static_volume:
   media_volume:
+  react_build:

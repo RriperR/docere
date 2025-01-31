@@ -1,7 +1,7 @@
 import os
 from .settings import *
 
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['docere.online', 'www.docere.online', 'localhost', '127.0.0.1']
 

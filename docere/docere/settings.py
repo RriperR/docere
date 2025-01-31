@@ -19,7 +19,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     )
 }
 
@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'django_extensions',
 
     'main',
-    'users',
     'django.contrib.postgres',
     'rest_framework',
     'corsheaders',
@@ -70,7 +69,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'users.context_processors.get_main_context',
+                "main.context_processors.get_main_context",
             ],
         },
     },

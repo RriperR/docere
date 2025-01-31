@@ -4,7 +4,7 @@ from django.db import models
 
 from utils.file_processing import is_image, generate_thumbnail_base64
 
-class Patients(models.Model):
+class Patient(models.Model):
     title = models.CharField(max_length=255, verbose_name="ФИО")
     phone = models.CharField(max_length=20, blank=True, verbose_name="Номер телефона", null=True)
     email = models.EmailField(max_length=255, blank=True, null=True, verbose_name="Электронная почта")
@@ -24,7 +24,7 @@ class MedHistory(models.Model):
     content = models.TextField(blank=True, verbose_name="Диагноз")
     time_create = models.DateTimeField(auto_now_add=True)
     is_published = models.BooleanField(default=True, verbose_name="Опубликовать")
-    patient = models.ForeignKey('Patients', on_delete=models.PROTECT, verbose_name="Пациент")
+    patient = models.ForeignKey('Patient', on_delete=models.PROTECT, verbose_name="Пациент")
 
     doctor_name = models.CharField(max_length=255, verbose_name="ФИО доктора")
     doctor_specialization = models.CharField(max_length=255, verbose_name="Специальность доктора")

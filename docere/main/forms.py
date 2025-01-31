@@ -1,10 +1,10 @@
 from django import forms
 
-from .models import Patients, MedHistory, UploadFiles
+from .models import Patient, MedHistory, UploadFiles
 
 class AddPatientForm(forms.ModelForm):
     class Meta:
-        model = Patients
+        model = Patient
         fields = ['title', 'phone', 'photo']
 
 

@@ -57,12 +57,21 @@ server {
     }
 
     # Проксирование запросов к uWSGI
-    location / {
+    location /api/ {
         # Ограничение скорости запросов
         limit_req zone=attackers burst=3 nodelay;
         include /etc/nginx/uwsgi_params;
         uwsgi_pass uwsgi_app;
     }
+
+
+    # Проксирование запросов к uWSGI
+    location / {
+        root /var/www/react/;
+        index index.html;
+        try_files $uri /index.html;
+    }
+
 
     # Настройка для статических файлов
     location /static/ {

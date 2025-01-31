@@ -1,21 +1,25 @@
-import axios from "axios"
-import { ACCESS_TOKEN } from "./constants"
+import axios from "axios";
+import {ACCESS_TOKEN} from "./constants.js";
+
+const VITE_API_URL = "/api";
+
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL
+    baseURL: VITE_API_URL,
 })
 
-api.interseptors.request.use(
+api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem(ACCESS_TOKEN);
         if (token) {
-            config.headers.Authorization = `Bearer ${token}`
+            config.headers.Authorization = `Bearer ${token}`;
         }
-        return config
+        return config;
     },
     (error) => {
-        return Promise.reject(error)
+        return Promise.reject(error);
     }
+
 )
 
 export default api

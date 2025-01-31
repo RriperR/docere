@@ -1,4 +1,4 @@
-from main.utils import menu
+from .utils import menu
 
 def get_main_context(request):
     return {'mainmenu': menu}

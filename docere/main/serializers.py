@@ -1,5 +1,8 @@
-from django.contrib.auth.models import User
 from rest_framework import serializers
+from django.contrib.auth.models import User
+
+from main.models import Patient
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,3 +13,10 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         return user
+
+
+
+class PatientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Patient
+        fields = ["id", "title", "phone", "email", "age"]
