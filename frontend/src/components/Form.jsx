@@ -19,20 +19,36 @@ function Form({ route, method }) {
         e.preventDefault();
 
         try {
-            const res = await api.post(route, { username, password })
+            const res = await api.post(route, { username, password });
+
             if (method === "login") {
-                localStorage.setItem(ACCESS_TOKEN, res.data.access);
-                localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
-                navigate("/")
+                console.log("🔥 Токены перед сохранением:", res.data);
+
+                if (res.data.access && res.data.refresh) {
+                    localStorage.setItem("access_token", res.data.access);
+                    localStorage.setItem("refresh_token", res.data.refresh);
+
+                    console.log("🔍 Проверка localStorage сразу после setItem:");
+                    console.log("📌 access_token:", localStorage.getItem("access_token"));
+                    console.log("📌 refresh_token:", localStorage.getItem("refresh_token"));
+
+                    window.dispatchEvent(new Event("storage")); // Сообщаем другим компонентам
+                    window.location.href = "/";
+                }
+                 else {
+                    console.error("❌ Ошибка: Токены не пришли в ответе сервера!");
+                }
             } else {
-                navigate("/login")
+                window.location.href = "/login";
             }
         } catch (error) {
-            alert(error)
+            console.error("Ошибка авторизации:", error);
+            alert("Ошибка входа! Проверьте логин и пароль.");
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     };
+
 
     return (
         <form onSubmit={handleSubmit} className="form-container">

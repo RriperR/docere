@@ -7,13 +7,13 @@ import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/ProtectedRoute"
 
 function Logout() {
-  localStorage.clear()
-  return <Navigate to="/login" />
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    return <Navigate to="/login" />;
 }
 
 function RegisterAndLogout() {
-  localStorage.clear()
-  return <Register />
+    return <Register />;
 }
 
 function App() {

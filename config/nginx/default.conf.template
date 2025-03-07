@@ -64,8 +64,12 @@ server {
         uwsgi_pass uwsgi_app;
     }
 
+    location /admin/ {
+        include /etc/nginx/uwsgi_params;
+        uwsgi_pass uwsgi_app;
+    }
 
-    # Проксирование запросов к uWSGI
+    # Проксирование запросов на фронтенд
     location / {
         root /var/www/react/;
         index index.html;

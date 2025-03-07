@@ -1,7 +1,11 @@
-import Form from "../components/Form"
+import { useNavigate } from "react-router-dom";
+import Form from "../components/Form";
 
 function Login() {
-    return <Form route="/token/" method="login" />
+    const navigate = useNavigate();
+
+
+    return <Form route="/token/" method="login"  />;
 }
 
-export default Login
+export default Login;

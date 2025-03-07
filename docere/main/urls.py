@@ -3,18 +3,10 @@ from . import views
 from . import file_processing
 
 urlpatterns = [
-    path('', views.MainPage.as_view(), name='home'),
-    path('upload/', views.UploadInfo.as_view(), name='upload'),
-    path('add/', views.AddPatient.as_view(), name='add_patient'),
-    path('add_info/', views.AddInfo.as_view(), name='add_info'),
-    path('about/', views.AboutPage.as_view(), name='about'),
-    path('contact/', views.contact, name='contact'),
-    path('cards/', views.ShowCards.as_view(), name='cards'),
-
     path('api/cards/', views.PatientListCreate.as_view(), name='cards-list'),
     path('api/cards/delete/<int:pk>/', views.PatientDelete.as_view(), name='delete-card'),
+    path('api/card/<int:card_id>', views.PatientCardAPIView.as_view(), name='card'),
 
-    path('card/<int:card_id>', views.ShowCard.as_view(), name='card'),
     path('process-zip/', file_processing.process_zip, name='process_zip'),
     path('confirm-fio/', file_processing.confirm_fio, name='confirm_fio'),
 ]

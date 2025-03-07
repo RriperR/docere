@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 
-from main.models import Patient
+from main.models import Patient, MedHistory
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -15,8 +15,13 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-
 class PatientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = ["id", "title", "phone", "email", "age"]
+
+
+class MedHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedHistory
+        fields = '__all__'

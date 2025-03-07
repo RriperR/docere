@@ -8,8 +8,7 @@ const api = axios.create({
     baseURL: VITE_API_URL,
 })
 
-api.interceptors.request.use(
-    (config) => {
+api.interceptors.request.use((config) => {
         const token = localStorage.getItem(ACCESS_TOKEN);
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
