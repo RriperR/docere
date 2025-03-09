@@ -2,3 +2,7 @@ services:
   web:
     build:
       context: .
+
+  worker:
+    build:
+      context: .

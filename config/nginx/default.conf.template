@@ -22,7 +22,7 @@ server {
     location / {
         # Ограничение скорости запросов
         limit_req zone=attackers burst=3 nodelay;
-        return 301 https://$host$request_uri;
+        return 307 https://$host$request_uri;
     }
 }
 

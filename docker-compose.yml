@@ -18,6 +18,8 @@ services:
 
 
   web:
+    build:
+      context: .
     entrypoint: ["/entrypoint.sh", "uwsgi", "--ini", "./config/uwsgi/uwsgi.ini"]
     restart: always
 
@@ -69,42 +71,28 @@ services:
       - web
     restart: always
 
-#  redis:
-#    image: redis
-#    hostname: redis
-#
-#
-#  worker:
-#    image: riper3d/docere_proj
-#    hostname: worker
-#    environment:
-#      - DJANGO_SETTINGS_MODULE=docere.prod  # Adjust this to match your actual settings file
-#      - PYTHONPATH=/code
-#    entrypoint: celery
-#    command: -A docere worker --loglevel=info  # Make sure this matches your app structure
-#    volumes:
-#      - ./docere:/code  # Mount the `docere` directory to `/code`
-#    links:
-#      - redis
-#    depends_on:
-#      - redis
-#
-#  flower:
-#    image: riper3d/docere_proj
-#    hostname: flower
-#    environment:
-#      - DJANGO_SETTINGS_MODULE=docere.prod
-#      - PYTHONPATH=/code
-#    entrypoint: celery
-#    command: -A docere flower
-#    volumes:
-#      - ./docere:/code
-#    links:
-#      - redis
-#    depends_on:
-#      - redis
-#    ports:
-#      - "5555:5555"
+  redis:
+    image: redis
+    hostname: redis
+
+
+  worker:
+    hostname: worker
+    environment:
+      - DJANGO_SETTINGS_MODULE=docere.prod
+      - PYTHONPATH=/code/docere
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+    command: celery -A docere.celery worker --loglevel=info
+    volumes:
+      - media_volume:/code/docere/media
+    links:
+      - redis
+    depends_on:
+      - redis
+
 
 
 volumes:

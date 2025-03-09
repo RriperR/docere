@@ -1,8 +1,7 @@
 from django.urls import reverse
-
+from django.conf import settings
 from django.db import models
 
-from utils.file_processing import is_image, generate_thumbnail_base64
 
 class Patient(models.Model):
     title = models.CharField(max_length=255, verbose_name="ФИО")
@@ -32,17 +31,30 @@ class MedHistory(models.Model):
     institution_specialization = models.CharField(max_length=255, verbose_name="Специализация мед учреждения")
     lab_data = models.FileField(upload_to="lab_data/files/%Y/%m/%d", blank=True, null=True, verbose_name="Лабораторные данные (файлы)")
 
-    def get_thumbnail(self, size=(100, 100)):
-        """
-        Динамическая генерация миниатюры.
-        """
-        if self.lab_data and is_image(self.lab_data):
-            return generate_thumbnail_base64(self.lab_data, size)
-        return None
-
-
     def __str__(self):
         return self.time_create
 
+
+class LabFile(models.Model):
+    med_history = models.ForeignKey(MedHistory, related_name='files', on_delete=models.CASCADE)
+    file = models.FileField(upload_to="lab_data/files/%Y/%m/%d")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.file.name
+
+
 class UploadFiles(models.Model):
-    file  = models.FileField(upload_to='uploads_model')
+    file = models.FileField(upload_to='uploads_model/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Пользователь"
+    )
+
+    def __str__(self):
+        user = self.uploaded_by if self.uploaded_by else "Аноним"
+        return f"{self.file.name} загружен {user} {self.uploaded_at:%Y-%m-%d %H:%M}"
