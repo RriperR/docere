@@ -1,8 +1,7 @@
-import tempfile
 import os
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.models import User
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -10,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from celery.result import AsyncResult
 
-from .models import Patient, MedHistory
+from .models import User, Patient, Doctor, MedHistory
 from .serializers import UserSerializer, PatientSerializer, MedHistorySerializer, ZipUploadSerializer
 from main.tasks import process_zip_task
 
@@ -22,17 +21,33 @@ class CreateUserView(generics.CreateAPIView):
 
 class PatientListCreate(generics.ListCreateAPIView):
     serializer_class = PatientSerializer
-    permission_classes = (AllowAny,)
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return Patient.objects.all()
+        user = self.request.user
+
+        if user.is_superuser or user.role == "admin":
+            return Patient.objects.all()
+
+        if user.role == "doctor":
+            return Patient.objects.filter(doctors=user.doctor_profile)
+
+        return Patient.objects.none()
 
     def perform_create(self, serializer):
-        if serializer.is_valid():
-            serializer.save()
-        else:
-            print(serializer.errors)
+        user = self.request.user
 
+        if user.is_superuser or user.role == "admin" or user.role == "doctor":
+            patient = serializer.save()
+
+            # Если доктор создаёт пациента – автоматически прикрепляем его
+            if user.role == "doctor":
+                doctor, _ = Doctor.objects.get_or_create(user=user)  # Создаём, если нет
+                patient.doctors.add(doctor)
+
+            return patient
+        else:
+            return Response({"error": "У вас нет прав на добавление пациентов"}, status=403)
 
 class PatientDelete(generics.DestroyAPIView):
     serializer_class = PatientSerializer
@@ -60,8 +75,25 @@ class PatientCardAPIView(generics.RetrieveAPIView):
         })
 
 
-from django.conf import settings
-import os
+class MedHistoryUpdate(generics.RetrieveUpdateAPIView):
+    queryset = MedHistory.objects.all()
+    serializer_class = MedHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        history = super().get_object()
+        user = self.request.user
+
+        # Админ может редактировать любые записи
+        if user.is_superuser or user.is_admin():
+            return history
+
+        # Доктор может редактировать только истории своих пациентов
+        if user.is_doctor() and history.patient.doctors.filter(id=user.doctor_profile.id).exists():
+            return history
+
+        return Response({"error": "У вас нет прав на редактирование"}, status=403)
+
 
 class ProcessZipView(APIView):
     def post(self, request):
