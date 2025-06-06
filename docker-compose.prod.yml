@@ -1,6 +1,0 @@
-services:
-  web:
-    image: riper3d/docere_proj
-
-  worker:
-    image: riper3d/docere_proj
