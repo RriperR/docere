@@ -6,7 +6,7 @@ build_backend:
   stage: build
   script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
-    - docker build -t riper3d/docere_backend:$CI_COMMIT_SHA ./backend
+    - docker build -t riper3d/docere_backend:$CI_COMMIT_SHA .
     - docker tag riper3d/docere_backend:$CI_COMMIT_SHA riper3d/docere_backend:latest
     - docker push riper3d/docere_backend:$CI_COMMIT_SHA
     - docker push riper3d/docere_backend:latest
