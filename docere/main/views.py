@@ -26,13 +26,16 @@ class PatientListCreate(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
 
+        if not user.is_authenticated:
+            return Patient.objects.all()
+
         if user.is_superuser or user.role == "admin":
             return Patient.objects.all()
 
         if user.role == "doctor":
             return Patient.objects.filter(doctors=user.doctor_profile)
 
-        return Patient.objects.none()
+        return Patient.objects.all()
 
     def perform_create(self, serializer):
         user = self.request.user

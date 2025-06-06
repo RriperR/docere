@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
 
-from main.models import Patient, MedHistory, LabFile
+
+from main.models import Patient, MedHistory, LabFile, User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -15,10 +15,18 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
+class UserInlineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'full_name', 'phone', 'email', 'age']
+
+
 class PatientSerializer(serializers.ModelSerializer):
+    user = UserInlineSerializer()
+
     class Meta:
         model = Patient
-        fields = ["id", "title", "phone", "email", "age"]
+        fields = ['id', 'user']
 
 
 class LabFileSerializer(serializers.ModelSerializer):

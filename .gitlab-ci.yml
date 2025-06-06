@@ -6,34 +6,48 @@ stages:
 variables:
   DOCKER_IMAGE: "riper3d/docere_proj"
   DOCKER_REGISTRY: "docker.io"
-  DOCKER_TAG: "latest"
 
 before_script:
-  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $DOCKER_REGISTRY
+  - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $DOCKER_REGISTRY
 
 build:
   stage: build
-  only:
-    - main
   script:
-    - docker build --network="host" -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
-    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:$DOCKER_TAG
-    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA
-    - docker push $DOCKER_IMAGE:$DOCKER_TAG
+    - echo "🔨 Building image for $CI_COMMIT_BRANCH"
+    - docker build --network="host" -t $DOCKER_IMAGE:$CI_COMMIT_REF_NAME .
+    - docker tag $DOCKER_IMAGE:$CI_COMMIT_REF_NAME $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $DOCKER_IMAGE:$CI_COMMIT_REF_NAME
+    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
 
 test:
   stage: test
-  only:
-    - main
   script:
-    - echo "Test stage passed"
+    - echo "✅ Test stage passed"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
 
-deploy:
+deploy_test:
   stage: deploy
-  only:
-    - main
   script:
-    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST
+    - echo "🚀 Deploying to TEST server"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER_TEST@$SSH_HOST_TEST
   environment:
-    name: prod
+    name: test
+    url: https://test.docere.online
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "🚀 Deploying to PROD server"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER_PROD@$SSH_HOST_PROD
+  environment:
+    name: production
     url: https://docere.online
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

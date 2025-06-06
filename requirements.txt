@@ -31,3 +31,5 @@ dateparser
 celery[redis]==5.4.0
 redis==5.2.1
 flower
+drf-yasg
+python-decouple

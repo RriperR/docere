@@ -1,5 +1,8 @@
+import os
+from decouple import config
 from datetime import timedelta
 from pathlib import Path
+from decouple import config
 
 from django.conf.global_settings import MEDIA_ROOT, MEDIA_URL
 
@@ -7,7 +10,7 @@ from django.conf.global_settings import MEDIA_ROOT, MEDIA_URL
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9w@(7j=w5=#($l9g2@r-6(vtm57)rr9a+$n(33dr5)q4w+cuba'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -40,10 +43,12 @@ INSTALLED_APPS = [
     'main',
     'django.contrib.postgres',
     'rest_framework',
+    'drf_yasg',
     'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -51,7 +56,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'docere.urls'
@@ -80,10 +84,10 @@ WSGI_APPLICATION = 'docere.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'docere',
-        'USER': 'doc',
-        'PASSWORD': 'docere007',
-        'HOST': 'localhost',
+        'NAME': config('POSTGRES_DB'),
+        'USER': config('POSTGRES_USER'),
+        'PASSWORD': config('POSTGRES_PASSWORD'),
+        'HOST': 'db',
         'PORT': '5432',
     }
 }

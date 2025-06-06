@@ -1,15 +1,13 @@
 services:
   db:
-    image: postgres
+    image: postgres:16
     restart: always
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:15432:5432"
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - ./docere/.env
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
@@ -26,9 +24,9 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=docere.prod
       - PYTHONPATH=/code
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - ./docere/.env
+
     depends_on:
       db:
         condition: service_healthy
@@ -37,6 +35,7 @@ services:
       - uwsgi_socket:/tmp
       - static_volume:/code/docere/static
       - media_volume:/code/docere/media
+      - .:/code/
       # - /home/docere_user/djangoProject1/code/prod.py:/code/docere/docere/prod.py
 
     ports:
@@ -48,9 +47,10 @@ services:
       dockerfile: Dockerfile
     volumes:
       - react_build:/react/dist
-    command: sh -c "rm -rf /react/dist/* && npm run build"
+    command: sh -c "echo 'Build done'"  # Не билдим каждый раз — артефакты уже в образе
     depends_on:
       - web
+
 
 
   nginx:
@@ -81,9 +81,8 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=docere.prod
       - PYTHONPATH=/code/docere
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - ./docere/.env
 
     command: celery -A docere.celery worker --loglevel=info
     volumes:
@@ -92,7 +91,6 @@ services:
       - redis
     depends_on:
       - redis
-
 
 
 volumes:
