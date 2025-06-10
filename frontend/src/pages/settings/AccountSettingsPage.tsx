@@ -1,55 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, Phone, Calendar, Shield, Save } from 'lucide-react';
+import {
+  User as UserIcon,
+  Mail,
+  Lock as LockIcon,
+  Phone,
+  Calendar,
+  Shield,
+  Save,
+} from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../stores/authStore';
 
-const AccountSettingsPage = () => {
-  const { user, updateUserProfile } = useAuthStore();
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+const AccountSettingsPage: React.FC = () => {
+  const { user, isLoading, updateProfile } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    dateOfBirth: user?.dateOfBirth || '',
+  const [formData, setFormData] = useState<FormData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  
+
+  // Инициализируем форму из стора
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        phone: user.phone || '',
+        dateOfBirth: user.birthday || '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    }
+  }, [user]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
-  
-  const handleSave = () => {
-    updateUserProfile({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
-      dateOfBirth: formData.dateOfBirth,
-    });
-    setIsEditing(false);
+
+  const handleSave = async () => {
+    try {
+      await updateProfile({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone: formData.phone || null,
+        birthday: formData.dateOfBirth || null,
+      });
+      setIsEditing(false);
+    } catch {
+      // Ошибку мы уже сохранили в сторе, можно показать нотификацию
+    }
   };
+
+  if (isLoading || !user) {
+    return <p>Loading profile...</p>;
+  }
 
   return (
     <div>
+      {/* Заголовок */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="mb-8"
       >
-        <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Account Settings
+        </h1>
         <p className="mt-1 text-gray-500">
           Manage your account information and preferences
         </p>
       </motion.div>
-      
+
       <div className="space-y-6">
+        {/* Personal Information */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -57,7 +104,7 @@ const AccountSettingsPage = () => {
         >
           <Card
             title="Personal Information"
-            icon={<User className="h-5 w-5" />}
+            icon={<UserIcon className="h-5 w-5" />}
             footer={
               <div className="flex justify-end">
                 {isEditing ? (
@@ -95,7 +142,7 @@ const AccountSettingsPage = () => {
                 value={formData.firstName}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                icon={<User className="h-4 w-4" />}
+                icon={<UserIcon className="h-4 w-4" />}
               />
               <Input
                 label="Last Name"
@@ -103,7 +150,7 @@ const AccountSettingsPage = () => {
                 value={formData.lastName}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                icon={<User className="h-4 w-4" />}
+                icon={<UserIcon className="h-4 w-4" />}
               />
               <Input
                 label="Email"
@@ -130,7 +177,7 @@ const AccountSettingsPage = () => {
                 disabled={!isEditing}
                 icon={<Calendar className="h-4 w-4" />}
               />
-              {user?.role === 'doctor' && (
+              {user.role === 'doctor' && (
                 <div className="flex items-center space-x-2 px-3 py-2 bg-primary-50 rounded-md">
                   <Shield className="h-5 w-5 text-primary-600" />
                   <span className="text-sm font-medium text-primary-700">
@@ -141,16 +188,14 @@ const AccountSettingsPage = () => {
             </div>
           </Card>
         </motion.div>
-        
+
+        {/* Change Password */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          <Card
-            title="Change Password"
-            icon={<Lock className="h-5 w-5" />}
-          >
+          <Card title="Change Password" icon={<LockIcon className="h-5 w-5" />}>
             <div className="space-y-4">
               <Input
                 label="Current Password"
@@ -158,7 +203,7 @@ const AccountSettingsPage = () => {
                 type="password"
                 value={formData.currentPassword}
                 onChange={handleInputChange}
-                icon={<Lock className="h-4 w-4" />}
+                icon={<LockIcon className="h-4 w-4" />}
               />
               <Input
                 label="New Password"
@@ -166,7 +211,7 @@ const AccountSettingsPage = () => {
                 type="password"
                 value={formData.newPassword}
                 onChange={handleInputChange}
-                icon={<Lock className="h-4 w-4" />}
+                icon={<LockIcon className="h-4 w-4" />}
               />
               <Input
                 label="Confirm New Password"
@@ -174,14 +219,14 @@ const AccountSettingsPage = () => {
                 type="password"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                icon={<Lock className="h-4 w-4" />}
+                icon={<LockIcon className="h-4 w-4" />}
               />
               <div className="flex justify-end">
                 <Button
                   variant="primary"
                   onClick={() => {
-                    // Handle password change
-                    alert('Password change functionality would go here');
+                    // Если будет отдельный endpoint — можно аналогично вызвать метод из сторa
+                    alert('Password change will be implemented here');
                   }}
                 >
                   Update Password

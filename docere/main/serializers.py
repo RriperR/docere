@@ -1,28 +1,44 @@
 from rest_framework import serializers
 
-
 from main.models import Patient, MedHistory, LabFile, User
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'password')
+        fields = ('id', 'email', 'password')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
+        email = validated_data['email']
+        password = validated_data['password']
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password
+        )
         return user
 
 
-class UserInlineSerializer(serializers.ModelSerializer):
+class UserMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'phone', 'email', 'age']
+        fields = [
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'middle_name',
+            'email',
+            'phone',
+            'birthday',
+            'photo',
+            'role',
+        ]
 
 
 class PatientSerializer(serializers.ModelSerializer):
-    user = UserInlineSerializer()
+    user = UserMeSerializer()
 
     class Meta:
         model = Patient

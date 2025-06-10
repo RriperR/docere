@@ -5,7 +5,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:15432:5432"
+      - "5432:5432"
     env_file:
       - ./docere/.env
     healthcheck:

@@ -1,111 +1,130 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import api from '../api/api';
 
-export type UserRole = 'patient' | 'doctor' | 'admin';
-
-export interface User {
-  id: string;
-  email: string;
-  role: UserRole;
+interface TokenData {
   access: string;
   refresh: string;
-  firstName?: string;
-  lastName?: string;
-  specialization?: string; // for doctors
-  dateOfBirth?: string; // for patients
+}
+
+interface UserData {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  middle_name: string | null;
+  email: string;
+  phone: string | null;
+  birthday: string | null;
+  photo: string | null;
+  role: 'doctor' | 'patient' | 'admin';
 }
 
 interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
+  tokens: TokenData | null;
+  user: UserData | null;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  updateUserProfile: (userData: Partial<User>) => void;
+  restoreSession: () => void;
+  isAuthenticated: boolean;
+  updateProfile: (updates: {
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string | null;
+    phone?: string | null;
+    birthday?: string | null;
+    photo?: string | null;
+  }) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+export const useAuthStore = create<AuthState>((set) => ({
+  tokens: JSON.parse(localStorage.getItem('authTokens') || 'null'),
+  user: JSON.parse(localStorage.getItem('authUserData') || 'null'),
+  isLoading: false,
+  error: null,
+  isAuthenticated: !!localStorage.getItem('authTokens'),
 
-      login: async (email: string, password: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          // 1. Получить токены
-          const { data } = await api.post('/token/', { email, password });
-          const access = data.access;
-          const refresh = data.refresh;
+  async register(email, password) {
+    set({ isLoading: true, error: null });
+    try {
+      await api.post('/user/register/', { email, password });
 
-          // 2. Получить профиль пользователя (пример endpoint: /users/me/)
-          const profileResponse = await api.get('/users/me/', {
-            headers: { Authorization: `Bearer ${access}` }
-          });
+      const { data: tokens } = await api.post('/token/', {
+        username: email,
+        password,
+      });
 
-          const userData = profileResponse.data;
+      const { data: user } = await api.get('/user/me/', {
+        headers: { Authorization: `Bearer ${tokens.access}` },
+      });
 
-          set({
-            user: {
-              id: userData.id,
-              email: userData.email,
-              role: userData.role,
-              access,
-              refresh,
-              firstName: userData.first_name,
-              lastName: userData.last_name,
-              // ... другие поля по профилю
-            },
-            isAuthenticated: true,
-            isLoading: false
-          });
-        } catch (error: any) {
-          set({
-            error: 'Неправильная почта или пароль',
-            isLoading: false
-          });
-        }
-      },
+      localStorage.setItem('authTokens', JSON.stringify(tokens));
+      localStorage.setItem('authUserData', JSON.stringify(user));
 
-      register: async (email: string, password: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          await api.post('/user/register/', { email, password });
-          // Далее вызываем login
-          await get().login(email, password);
-        } catch (error: any) {
-          set({
-            error: 'Регистрация не удалась. Попробуйте ещё раз.',
-            isLoading: false
-          });
-        }
-      },
-
-
-      logout: () => {
-        set({
-          user: null,
-          isAuthenticated: false
-        });
-      },
-
-      updateUserProfile: (userData) => {
-        set((state) => ({
-          user: state.user ? { ...state.user, ...userData } : null
-        }));
-      }
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({ 
-        user: state.user, 
-        isAuthenticated: state.isAuthenticated 
-      }),
+      set({ tokens, user, isLoading: false, isAuthenticated: true });
+    } catch (err: any) {
+      set({
+        error: err.response?.data?.detail || 'Registration failed',
+        isLoading: false,
+      });
+      throw err;
     }
-  )
-);
+  },
+
+  async login(email, password) {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: tokens } = await api.post('/token/', {
+        username: email,
+        password,
+      });
+
+      const { data: user } = await api.get('/user/me/', {
+        headers: { Authorization: `Bearer ${tokens.access}` },
+      });
+
+      localStorage.setItem('authTokens', JSON.stringify(tokens));
+      localStorage.setItem('authUserData', JSON.stringify(user));
+
+      set({ tokens, user, isLoading: false, isAuthenticated: true });
+    } catch (err: any) {
+      set({
+        error: err.response?.data?.detail || 'Login failed',
+        isLoading: false,
+      });
+      throw err;
+    }
+  },
+
+  logout() {
+    localStorage.removeItem('authTokens');
+    localStorage.removeItem('authUserData');
+    set({ tokens: null, user: null, isAuthenticated: false });
+  },
+
+  restoreSession() {
+    const tokens = JSON.parse(localStorage.getItem('authTokens') || 'null');
+    const user = JSON.parse(localStorage.getItem('authUserData') || 'null');
+    set({ tokens, user, isAuthenticated: !!tokens });
+  },
+
+  async updateProfile(updates) {
+    set({ isLoading: true, error: null });
+    try {
+      // PUT /user/me/
+      const { data: updated } = await api.put<UserData>('/user/me/', updates);
+      // Запишем в localStorage
+      localStorage.setItem('authUserData', JSON.stringify(updated));
+      // Обновим в zustand
+      set({ user: updated, isLoading: false });
+    } catch (err: any) {
+      set({
+        error: err.response?.data ? JSON.stringify(err.response.data) : 'Update failed',
+        isLoading: false,
+      });
+      throw err;
+    }
+  },
+}));

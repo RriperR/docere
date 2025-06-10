@@ -10,18 +10,33 @@ from rest_framework.views import APIView
 from celery.result import AsyncResult
 
 from .models import User, Patient, Doctor, MedHistory
-from .serializers import UserSerializer, PatientSerializer, MedHistorySerializer, ZipUploadSerializer
+from .serializers import UserSerializer, PatientSerializer, MedHistorySerializer, ZipUploadSerializer, UserMeSerializer
 from main.tasks import process_zip_task
 
 
 class CreateUserView(generics.CreateAPIView):
+    permission_classes = (AllowAny,)
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
 
+class UserMeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserMeSerializer(request.user)
+        return Response(serializer.data)
+
+    def put(self, request):
+        serializer = UserMeSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class PatientListCreate(generics.ListCreateAPIView):
     serializer_class = PatientSerializer
-    permission_classes = [AllowAny]
 
     def get_queryset(self):
         user = self.request.user
@@ -52,9 +67,9 @@ class PatientListCreate(generics.ListCreateAPIView):
         else:
             return Response({"error": "У вас нет прав на добавление пациентов"}, status=403)
 
+
 class PatientDelete(generics.DestroyAPIView):
     serializer_class = PatientSerializer
-    permission_classes = (AllowAny,)
 
     def get_queryset(self):
         return Patient.objects.all()
@@ -63,7 +78,6 @@ class PatientDelete(generics.DestroyAPIView):
 class PatientCardAPIView(generics.RetrieveAPIView):
     queryset = Patient.objects.all()
     serializer_class = PatientSerializer
-    permission_classes = (AllowAny,)
     lookup_url_kwarg = 'card_id'
 
     def retrieve(self, request, *args, **kwargs):
@@ -121,7 +135,6 @@ class ProcessZipView(APIView):
             return Response({'success': True, 'task_id': task.id}, status=status.HTTP_202_ACCEPTED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class TaskStatusView(APIView):

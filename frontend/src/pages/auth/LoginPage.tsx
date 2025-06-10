@@ -30,7 +30,7 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data.email, data.password);
-      navigate('/dashboard');
+      navigate('/dashboard/patient');
     } catch (error) {
       // Error is handled by the auth store
     }

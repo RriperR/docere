@@ -13,10 +13,10 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='patient')
 
-    full_name = models.CharField(max_length=255, verbose_name="ФИО")
+    middle_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Отчество")
     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Номер телефона")
     email = models.EmailField(unique=True, verbose_name="Электронная почта")
-    age = models.PositiveIntegerField(blank=True, null=True, verbose_name="Возраст")
+    birthday = models.DateField(blank=True, null=True, verbose_name="Дата рождения")
     photo = models.ImageField(upload_to="photos/%Y/%m/%d", blank=True, null=True, verbose_name='Фото')
     time_create = models.DateTimeField(auto_now_add=True)
     time_update = models.DateTimeField(auto_now=True)
@@ -31,7 +31,7 @@ class User(AbstractUser):
         return self.role == 'admin'
 
     def __str__(self):
-        return self.full_name
+        return self.username
 
 
 class Patient(models.Model):

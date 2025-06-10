@@ -18,13 +18,15 @@ DEBUG = True
 ALLOWED_HOSTS = ['127.0.0.1']
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.AllowAny',
-    )
+        'rest_framework.permissions.IsAuthenticated',
+    ),
 }
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
@@ -43,7 +45,7 @@ INSTALLED_APPS = [
     'main',
     'django.contrib.postgres',
     'rest_framework',
-    'drf_yasg',
+    'drf_spectacular',
     'corsheaders',
 ]
 
@@ -147,3 +149,24 @@ AUTH_USER_MODEL = 'main.User'
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 USERNAME_FIELD = "email"
 REQUIRED_FIELDS = ["username"]
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Docere API',
+    'DESCRIPTION': 'Документация API для фронтенда',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'BearerAuth': []}],
+    'AUTHENTICATION_WHITELIST': [],
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+    },
+}
+
+SPECTACULAR_SETTINGS['SECURITY_SCHEMES'] = {
+    'BearerAuth': {
+        'type': 'http',
+        'scheme': 'bearer',
+        'bearerFormat': 'JWT',
+    },
+}
