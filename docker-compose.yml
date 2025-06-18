@@ -41,6 +41,7 @@ services:
     ports:
       - "8000:8000"
 
+
   frontend:
     build:
       context: ./frontend
@@ -50,7 +51,6 @@ services:
     command: sh -c "echo 'Build done'"  # Не билдим каждый раз — артефакты уже в образе
     depends_on:
       - web
-
 
 
   nginx:

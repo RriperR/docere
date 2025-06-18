@@ -6,7 +6,7 @@ from collections import Counter
 from celery import shared_task
 from django.core.files import File
 
-from .models import Patient, MedHistory, LabFile
+from .models import Patient, MedicalRecord, LabFile
 from .utils import extract_fio, decode_filename
 
 
@@ -14,7 +14,7 @@ from .utils import extract_fio, decode_filename
 def process_zip_task(file_path):
     """
     1) Определяем пациента по самой часто встречающейся фамилии (или ФИО),
-    2) Создаём одну запись MedHistory,
+    2) Создаём одну запись MedicalRecord,
     3) Для каждого извлечённого файла создаём объект LabFile, связанный с этой записью.
     """
     try:
@@ -61,13 +61,12 @@ def process_zip_task(file_path):
                 patient = Patient.objects.create(title=most_common_name)
 
             # Создаём ОДНУ запись MedHistory для всего архива
-            med_history = MedHistory.objects.create(
+            record = MedicalRecord.objects.create(
                 patient=patient,
-                content="Файлы из архива",
-                doctor_name="",  # Можно заполнить при необходимости
-                doctor_specialization="",
+                doctor=None,  # Можно заполнить при необходимости
                 appointment_location="",
-                institution_specialization=""
+                notes="",
+                visit_date=None,
             )
 
             # Для каждого извлечённого файла создаём запись в LabFile
@@ -77,7 +76,7 @@ def process_zip_task(file_path):
 
                     # Создаём объект LabFile
                     lab_file = LabFile.objects.create(
-                        med_history=med_history
+                        record=record
                     )
 
                     # Сохраняем сам файл

@@ -1,91 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Shield, CheckCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
+import api from '../../api/api';
+
+interface BackendDoctor {
+  id: number;
+  user: {
+    first_name: string;
+    last_name: string;
+    // если в будущем добавите поля specialization/hospital — можно расширить здесь
+  };
+}
 
 interface Doctor {
   id: string;
   name: string;
-  specialization: string;
-  hospital: string;
 }
 
-const DoctorRequestPage = () => {
+const DoctorRequestPage: React.FC = () => {
   const navigate = useNavigate();
+
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Mock doctors data
-  const doctors: Doctor[] = [
-    {
-      id: '1',
-      name: 'Dr. Alex Smith',
-      specialization: 'Cardiologist',
-      hospital: 'Central Hospital'
-    },
-    {
-      id: '2',
-      name: 'Dr. Maria Johnson',
-      specialization: 'Neurologist',
-      hospital: 'City Medical Center'
-    },
-    {
-      id: '3',
-      name: 'Dr. James Wilson',
-      specialization: 'Oncologist',
-      hospital: 'Memorial Hospital'
-    },
-    {
-      id: '4',
-      name: 'Dr. Sarah Brown',
-      specialization: 'Pediatrician',
-      hospital: 'Children\'s Hospital'
-    },
-    {
-      id: '5',
-      name: 'Dr. Michael Lee',
-      specialization: 'Surgeon',
-      hospital: 'University Hospital'
-    }
-  ];
-  
+
+  // 1) Загрузка списка врачей с сервера
+  useEffect(() => {
+    api.get<BackendDoctor[]>('/doctors/')
+      .then(({ data }) => {
+        const list = data.map((d) => ({
+          id: String(d.id),
+          name: `${d.user.first_name} ${d.user.last_name}`,
+        }));
+        setDoctors(list);
+      })
+      .catch((err) => {
+        console.error(err);
+        setFetchError('Не удалось загрузить список врачей.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
   const handleDoctorSelect = (doctorId: string) => {
-    setSelectedDoctors(prev => {
-      if (prev.includes(doctorId)) {
-        return prev.filter(id => id !== doctorId);
-      }
-      return [...prev, doctorId];
-    });
+    setSelectedDoctors((prev) =>
+      prev.includes(doctorId)
+        ? prev.filter((id) => id !== doctorId)
+        : [...prev, doctorId]
+    );
   };
-  
+
   const handleSubmit = async () => {
     if (selectedDoctors.length === 0) {
-      setError('Please select at least one doctor');
+      setError('Пожалуйста, выберите как минимум одного врача.');
       return;
     }
-    
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // здесь замените на свой реальный эндпоинт отправки запроса
+      await api.post('/doctor-requests/', { doctors: selectedDoctors });
       setIsSuccess(true);
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 3000);
-    } catch (error) {
-      setError('Failed to submit request. Please try again.');
+      setTimeout(() => navigate('/dashboard'), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Не удалось отправить запрос. Попробуйте снова.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+    return <p>Загрузка врачей…</p>;
+  }
+  if (fetchError) {
+    return <p className="text-red-500">{fetchError}</p>;
+  }
 
   return (
     <div>
@@ -100,7 +100,7 @@ const DoctorRequestPage = () => {
           Select doctors to verify your medical credentials
         </p>
       </motion.div>
-      
+
       {isSuccess ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -109,20 +109,15 @@ const DoctorRequestPage = () => {
         >
           <Card>
             <div className="text-center py-8">
-              <div className="flex justify-center mb-4">
-                <CheckCircle className="h-16 w-16 text-success-500" />
-              </div>
+              <CheckCircle className="h-16 w-16 text-success-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 Request Submitted Successfully
               </h2>
               <p className="text-gray-500 mb-8">
-                Your request has been sent to {selectedDoctors.length} doctor{selectedDoctors.length > 1 ? 's' : ''}.
-                You will be notified once they review your application.
+                Your request has been sent to {selectedDoctors.length} doctor
+                {selectedDoctors.length > 1 ? 's' : ''}. You will be notified once they review your application.
               </p>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/dashboard')}
-              >
+              <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Return to Dashboard
               </Button>
             </div>
@@ -141,18 +136,18 @@ const DoctorRequestPage = () => {
                 <p className="text-sm text-error-700">{error}</p>
               </div>
             )}
-            
+
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Select Doctors for Verification
               </h3>
               <p className="text-gray-500 text-sm">
-                Choose doctors who can verify your medical credentials. They will receive a request to confirm your status as a medical professional.
+                Choose doctors who can verify your medical credentials.
               </p>
             </div>
-            
+
             <div className="space-y-4 mb-8">
-              {doctors.map(doctor => (
+              {doctors.map((doctor) => (
                 <div
                   key={doctor.id}
                   className={`border rounded-lg p-4 cursor-pointer transition-colors duration-200 ${
@@ -170,25 +165,22 @@ const DoctorRequestPage = () => {
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                     />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">{doctor.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {doctor.specialization} at {doctor.hospital}
+                      <p className="text-sm font-medium text-gray-900">
+                        {doctor.name}
                       </p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            
+
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                Selected: {selectedDoctors.length} doctor{selectedDoctors.length !== 1 ? 's' : ''}
+                Selected: {selectedDoctors.length} doctor
+                {selectedDoctors.length !== 1 ? 's' : ''}
               </p>
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/dashboard')}
-                >
+                <Button variant="outline" onClick={() => navigate('/dashboard')}>
                   Cancel
                 </Button>
                 <Button

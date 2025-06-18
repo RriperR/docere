@@ -1,21 +1,35 @@
 from rest_framework import serializers
 
-from main.models import Patient, MedHistory, LabFile, User
+from main.models import Patient, User, Doctor, LabFile, MedicalRecord
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=6)
+
     class Meta:
-        model = User
-        fields = ('id', 'email', 'password')
-        extra_kwargs = {'password': {'write_only': True}}
+        model  = User
+        fields = (
+          'id',
+          'email',
+          'password',
+          'first_name',
+          'last_name',
+          'middle_name',
+          'phone',
+          'birthday',
+        )
 
     def create(self, validated_data):
-        email = validated_data['email']
-        password = validated_data['password']
+        password     = validated_data.pop('password')
         user = User.objects.create_user(
-            username=email,
-            email=email,
-            password=password
+            username    = validated_data.get('email'),
+            email       = validated_data.get('email'),
+            password    = password,
+            first_name  = validated_data.get('first_name', ''),
+            last_name   = validated_data.get('last_name', ''),
+            middle_name = validated_data.get('middle_name', None),
+            phone       = validated_data.get('phone', None),
+            birthday    = validated_data.get('birthday', None),
         )
         return user
 
@@ -38,38 +52,45 @@ class UserMeSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializer(serializers.ModelSerializer):
-    user = UserMeSerializer()
 
     class Meta:
         model = Patient
+        fields = ['id', 'first_name', 'last_name', 'middle_name', 'birthday', 'photo']
+
+
+class DoctorSerializer(serializers.ModelSerializer):
+    user = UserMeSerializer(read_only=True)
+
+    class Meta:
+        model = Doctor
         fields = ['id', 'user']
+
+class DoctorInfoSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    photo     = serializers.ImageField(source='user.photo', read_only=True)
+
+    class Meta:
+        model = Doctor
+        fields = ['id', 'full_name', 'photo', 'specialization', 'institution']
 
 
 class LabFileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = LabFile
-        fields = ['id', 'file', 'uploaded_at']
+        model  = LabFile
+        fields = ['id', 'file_type', 'file']
 
 
-class MedHistorySerializer(serializers.ModelSerializer):
-    files = LabFileSerializer(many=True, read_only=True)
+class MedicalRecordSerializer(serializers.ModelSerializer):
+    doctor    = DoctorInfoSerializer(read_only=True)
+    lab_files = LabFileSerializer(source='files', many=True, read_only=True)
 
     class Meta:
-        model = MedHistory
-        fields = '__all__'
-
-
-MAX_FILE_SIZE_MB = 50
-
-class ZipUploadSerializer(serializers.Serializer):
-    file = serializers.FileField()
-
-    def validate_file(self, value):
-        if not value.name.endswith('.zip'):
-            raise serializers.ValidationError("Файл должен быть ZIP-архивом")
-        return value
-
-    def validate_file_size(file):
-        if file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
-            raise serializers.ValidationError(f"Файл слишком большой (максимум {MAX_FILE_SIZE_MB}MB)")
-        return file
+        model  = MedicalRecord
+        fields = [
+            'id',
+            'visit_date',
+            'appointment_location',
+            'notes',
+            'doctor',
+            'lab_files',
+        ]

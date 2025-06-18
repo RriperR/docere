@@ -1,4 +1,3 @@
-from django.urls import reverse
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -14,89 +13,152 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='patient')
 
     middle_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Отчество")
-    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Номер телефона")
-    email = models.EmailField(unique=True, verbose_name="Электронная почта")
+    phone = models.CharField(unique=True, max_length=20, blank=True, null=True, verbose_name="Номер телефона")
+    email = models.EmailField(unique=True, blank=True, null=True, verbose_name="Электронная почта")
     birthday = models.DateField(blank=True, null=True, verbose_name="Дата рождения")
     photo = models.ImageField(upload_to="photos/%Y/%m/%d", blank=True, null=True, verbose_name='Фото')
     time_create = models.DateTimeField(auto_now_add=True)
     time_update = models.DateTimeField(auto_now=True)
 
-    def is_patient(self):
-        return self.role == 'patient'
+    def get_full_name(self) -> str:
+        """
+        Возвращает Фамилия Имя Отчество,
+        склеивая поля из User (или из связанного Patient).
+        """
+        parts = []
+        if self.last_name:
+            parts.append(self.last_name)
+        if self.first_name:
+            parts.append(self.first_name)
+        if self.middle_name:
+            parts.append(self.middle_name)
+        return " ".join(parts)
 
-    def is_doctor(self):
-        return self.role == 'doctor'
-
-    def is_admin(self):
-        return self.role == 'admin'
+    @property
+    def full_name(self) -> str:
+        return self.get_full_name()
 
     def __str__(self):
-        return self.username
+        return self.phone
 
 
 class Patient(models.Model):
     user = models.OneToOneField(
-        User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Пользователь"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_profile'
     )
 
+    first_name  = models.CharField('Имя',    max_length=150)
+    last_name   = models.CharField('Фамилия',max_length=150)
+    middle_name = models.CharField('Отчество', max_length=150, blank=True, null=True)
+    birthday    = models.DateField('Дата рождения', blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Номер телефона")
+    email = models.EmailField(unique=True, verbose_name="email")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
     def __str__(self):
-        return f"Пациент {self.user.full_name if self.user else 'Без пользователя'}"
-
-
-    def get_absolute_url(self):
-        return reverse('card', kwargs={'card_id' : self.pk})
+        return f'Пациент {self.last_name} {self.first_name}'
 
 
 class Doctor(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="doctor_profile")
-    patients = models.ManyToManyField("Patient", related_name="doctors")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="doctor_profile"
+    )
+    first_name = models.CharField('Имя', max_length=150)
+    last_name = models.CharField('Фамилия', max_length=150)
+    middle_name = models.CharField('Отчество', max_length=150, blank=True, null=True)
+    specialization   = models.CharField(max_length=200, blank=True, null=True)  # e.g. 'Cardiologist'
+    institution      = models.CharField(max_length=200, blank=True, null=True)  # e.g. 'Central Hospital'
+    patients         = models.ManyToManyField("Patient", related_name="doctors")
 
     def __str__(self):
-        return f"Доктор {self.user.full_name}"
+        return f"Доктор {self.user.email}"
 
 
 class Admin(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="admin_profile")
 
     def __str__(self):
-        return f"Админ {self.user.full_name}"
+        return f"Админ {self.user.email}"
 
 
-class MedHistory(models.Model):
-    patient = models.ForeignKey("Patient", on_delete=models.PROTECT, verbose_name="Пациент")
-    doctor = models.ForeignKey("Doctor", on_delete=models.SET_NULL, null=True, verbose_name="Доктор")
+class ArchiveJob(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'В ожидании'),
+        ('processing', 'Обрабатывается'),
+        ('failed', 'Ошибка'),
+        ('done', 'Готово'),
+    ]
 
-    content = models.TextField(blank=True, verbose_name="Диагноз")
-    clinic_address = models.CharField(max_length=255, blank=True, verbose_name="Адрес клиники")
-    clinic_specialty = models.CharField(max_length=255, blank=True, verbose_name="Специализация клиники")
-    lab_data = models.FileField(upload_to="lab_data/files/%Y/%m/%d", blank=True, null=True, verbose_name="Лабораторные данные")
-    is_published = models.BooleanField(default=True, verbose_name="Опубликовать")
-    time_create = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='archive_jobs'
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    status      = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
+    log         = models.TextField(blank=True)  # сюда пишем ход обработки
+    # Поле, в котором хранится путь/URL к самому архиву
+    archive_file = models.FileField(
+        upload_to='archives/%Y/%m/%d/',
+        max_length=500,
+        help_text='Исходный ZIP-архив одного пациента'
+    )
 
-    def __str__(self):
-        return f"{self.doctor} -> {self.patient} ({self.time_create})"
+    class Meta:
+        ordering = ['-uploaded_at']
 
 
 class LabFile(models.Model):
-    med_history = models.ForeignKey(MedHistory, related_name='files', on_delete=models.CASCADE)
-    file = models.FileField(upload_to="lab_data/files/%Y/%m/%d")
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    record     = models.ForeignKey('MedicalRecord', on_delete=models.CASCADE, related_name='files')
+    file_type  = models.CharField(max_length=20, choices=[('photo','Фото'),('ct_scan','КТ')])
+    file       = models.FileField(upload_to='records/%Y/%m/%d/')
+    metadata   = models.JSONField(blank=True)  # EXIF, DICOM-теги и т.п.
 
-    def __str__(self):
-        return self.file.name
-
-
-class UploadFiles(models.Model):
-    file = models.FileField(upload_to='uploads_model/')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Пользователь"
+        null=True
     )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
+class MedicalRecord(models.Model):
+    patient = models.ForeignKey(
+        'Patient',
+        on_delete=models.CASCADE,
+        related_name='medical_records',
+        null=True, blank=True
+    )
+    doctor = models.ForeignKey(
+        'Doctor',
+        on_delete=models.CASCADE,
+        related_name='medical_records',
+        null=True, blank=True
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_medical_records'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    appointment_location = models.TextField(blank=True)
+    notes     = models.TextField(blank=True)
+    visit_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-visit_date', '-created_at']
 
     def __str__(self):
-        user = self.uploaded_by if self.uploaded_by else "Аноним"
-        return f"{self.file.name} загружен {user} {self.uploaded_at:%Y-%m-%d %H:%M}"
+        return f"Record #{self.id}"

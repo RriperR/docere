@@ -114,7 +114,7 @@ export const DashboardLayout = () => {
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
                 <ActivitySquare className="h-8 w-8 text-primary-600" />
-                <span className="ml-2 text-xl font-bold text-gray-900">MedRecord</span>
+                <span className="ml-2 text-xl font-bold text-gray-900">Docere</span>
               </div>
             </div>
             <div className="flex items-center">
@@ -302,7 +302,7 @@ export const DashboardLayout = () => {
                   <div className="-ml-1 flex items-center justify-between">
                     <div className="flex items-center">
                       <ActivitySquare className="h-8 w-8 text-primary-600" />
-                      <span className="ml-2 text-xl font-bold text-gray-900">MedRecord</span>
+                      <span className="ml-2 text-xl font-bold text-gray-900">Docere</span>
                     </div>
                     <button
                       onClick={() => setIsMobileMenuOpen(false)}
