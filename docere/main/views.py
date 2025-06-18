@@ -9,9 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from celery.result import AsyncResult
 
-from .models import User, Patient, Doctor, MedicalRecord
+from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob
 from .serializers import (UserRegisterSerializer, PatientSerializer, DoctorSerializer,
-                          UserMeSerializer, MedicalRecordSerializer)
+                          UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer)
 from main.tasks import process_zip_task
 
 
@@ -72,39 +72,40 @@ class PatientDelete(generics.DestroyAPIView):
 
 
 class ProcessZipView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
+        # 1) Сериализуем пришедший файл
         serializer = ZipUploadSerializer(data=request.data)
-        if serializer.is_valid():
-            uploaded_file = serializer.validated_data['file']
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            # Сохраняем архив в `media/archives`
-            temp_dir = os.path.join(settings.MEDIA_ROOT, "archives")
-            os.makedirs(temp_dir, exist_ok=True)
-            temp_path = os.path.join(temp_dir, uploaded_file.name)
+        # 2) Создаём ArchiveJob
+        job: ArchiveJob = serializer.save(
+            uploaded_by=request.user,
+            status='pending'
+        )
 
-            with open(temp_path, "wb") as temp_file:
-                for chunk in uploaded_file.chunks():
-                    temp_file.write(chunk)
+        # 3) Запускаем Celery-таск по job.id
+        process_zip_task.delay(job.id)
 
-            print(f"Файл сохранён в: {temp_path}")  # Логирование
-
-            # Отправляем задачу в Celery
-            task = process_zip_task.delay(temp_path)
-
-            return Response({'success': True, 'task_id': task.id}, status=status.HTTP_202_ACCEPTED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        # 4) Отдаём клиенту job_id
+        return Response({'job_id': job.id}, status=status.HTTP_202_ACCEPTED)
 
 class TaskStatusView(APIView):
-    def get(self, request, task_id):
-        result = AsyncResult(task_id)
-        return Response({
-            'task_id': task_id,
-            'status': result.status,
-            'result': result.result if result.ready() else None
-        })
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request, task_id):
+        try:
+            job = ArchiveJob.objects.get(pk=task_id, uploaded_by=request.user)
+        except ArchiveJob.DoesNotExist:
+            return Response({'error': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            'job_id': job.id,
+            'status': job.status,
+            'log': job.log,
+        })
 
 class DoctorListAPIView(generics.ListAPIView):
     """

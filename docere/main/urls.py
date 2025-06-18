@@ -9,7 +9,7 @@ urlpatterns = [
     path('user/me/', views.UserMeView.as_view(), name='user-me'),
     path('cards/', views.PatientListCreate.as_view(), name='cards-list'),
     path('process-zip/', views.ProcessZipView.as_view(), name='process_zip'),
-    path('task-status/<str:task_id>/', views.TaskStatusView.as_view(), name='task_status'),
+    path('task-status/<int:task_id>/', views.TaskStatusView.as_view(), name='task_status'),
     path('doctors/', views.DoctorListAPIView.as_view(), name='doctor-list'),
     path(
       'doctors/<int:doctor_id>/patients/',

@@ -1,6 +1,3 @@
-# Ограничение скорости запросов
-limit_req_zone $binary_remote_addr zone=attackers:10m rate=1r/s;
-
 # Настройка для uWSGI
 upstream uwsgi_app {
     server unix:/tmp/uwsgi_app.sock;
@@ -20,8 +17,6 @@ server {
 
     # Перенаправление всех HTTP-запросов на HTTPS
     location / {
-        # Ограничение скорости запросов
-        limit_req zone=attackers burst=3 nodelay;
         return 307 https://$host$request_uri;
     }
 }
@@ -58,8 +53,6 @@ server {
 
     # Проксирование запросов к uWSGI
     location /api/ {
-        # Ограничение скорости запросов
-        limit_req zone=attackers burst=3 nodelay;
         include /etc/nginx/uwsgi_params;
         uwsgi_pass uwsgi_app;
     }

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from main.models import Patient, User, Doctor, LabFile, MedicalRecord
+from main.models import Patient, User, Doctor, LabFile, MedicalRecord, ArchiveJob
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -94,3 +94,9 @@ class MedicalRecordSerializer(serializers.ModelSerializer):
             'doctor',
             'lab_files',
         ]
+
+
+class ZipUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArchiveJob
+        fields = ['archive_file']
