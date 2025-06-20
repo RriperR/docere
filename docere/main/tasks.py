@@ -1,95 +1,154 @@
-# main/tasks.py
 import os
 import zipfile
 import tempfile
 from collections import Counter
-from django.db import transaction
+
 from celery import shared_task
+from django.db import transaction
+from django.utils import timezone
 from django.core.files import File as DjangoFile
 
-from .models import ArchiveJob, Patient, Doctor, MedicalRecord, LabFile
-from .utils import extract_fio, decode_filename
+from .models import ArchiveJob, Patient, MedicalRecord, LabFile
+from .utils import decode_filename, extract_fio, extract_dob, extract_phone, extract_email
+
 
 @shared_task(bind=True)
 def process_zip_task(self, job_id):
+    print("Begining of celery working!!")
     job = ArchiveJob.objects.get(pk=job_id)
+    # 1) Помечаем начало обработки
     job.status = 'processing'
     job.log = (job.log or '') + 'Start processing\n'
-    job.save()
+    job.save(update_fields=['status', 'log'])
 
+    tmpdir = tempfile.mkdtemp()
     try:
-        # Распаковать ZIP
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with zipfile.ZipFile(job.archive_file.path, 'r') as zf:
-                for info in zf.infolist():
-                    try:
-                        info.filename = decode_filename(info.filename)
-                    except Exception:
-                        pass
-                    dest = os.path.abspath(os.path.join(tmpdir, info.filename))
-                    if not dest.startswith(os.path.abspath(tmpdir)):
-                        continue
-                    zf.extract(info, tmpdir)
+        # 2) Распаковка архива с декодом имён и безопасным извлечением
+        with zipfile.ZipFile(job.archive_file.path, 'r') as zf:
+            for info in zf.infolist():
+                try:
+                    decoded = decode_filename(info.filename)
+                except Exception:
+                    decoded = info.filename
 
-            # Собрать все ФИО из имён файлов и названия архива
-            names = []
+                dest_path = os.path.abspath(os.path.join(tmpdir, decoded))
+                if not dest_path.startswith(os.path.abspath(tmpdir)):
+                    continue
+
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                zf.extract(info, tmpdir)
+
+                # переименовываем, если zf.extract сохранил старое имя
+                orig = os.path.join(tmpdir, info.filename)
+                if os.path.exists(orig) and orig != dest_path:
+                    os.replace(orig, dest_path)
+
+        # 3) Сбор «сырых» данных из имён файлов
+        all_fios, all_dobs, all_phones, all_emails = [], [], [], []
+        file_count = 0
+        for root, _, files in os.walk(tmpdir):
+            for fname in files:
+                file_count += 1
+                name_only, _ = os.path.splitext(fname)
+                all_fios.extend(extract_fio(name_only))
+                all_dobs.extend(extract_dob(name_only))
+                all_phones.extend(extract_phone(name_only))
+                all_emails.extend(extract_email(name_only))
+
+        # 4) Сохраняем raw_extracted и логируем
+        job.raw_extracted = {
+            'fios':   all_fios,
+            'dobs':   all_dobs,
+            'phones': all_phones,
+            'emails': all_emails,
+        }
+        print('DBG raw_extracted:', job.raw_extracted)
+        job.log += (
+            f'Extracted {len(all_fios)} fio(s), '
+            f'{len(all_dobs)} date(s), '
+            f'{len(all_phones)} phone(s), '
+            f'{len(all_emails)} email(s)\n'
+        )
+        job.save(update_fields=['raw_extracted', 'log'])
+
+        # Если ФИО нет — сразу завершаем задачку с ошибкой,
+        # MedicalRecord не создаём
+        if not all_fios:
+            job.status = 'failed'
+            job.completed_at = timezone.now()
+            job.log += 'No FIO found; aborting processing\n'
+            job.save(update_fields=['status', 'completed_at', 'log'])
+            return
+
+        # 5) Выбор самого частого ФИО → Patient
+        main = Counter(all_fios).most_common(1)
+        patient = None
+        if main:
+            fio = main[0][0]
+            parts = fio.split()
+            patient = Patient.objects.filter(
+                last_name__iexact=parts[0] if parts else '',
+                first_name__iexact=parts[1] if len(parts) > 1 else ''
+            ).first()
+            if not patient:
+                patient = Patient.objects.create(
+                    last_name= parts[0] if parts else '',
+                    first_name= parts[1] if len(parts) > 1 else '',
+                    middle_name= parts[2] if len(parts) > 2 else None,
+                )
+            job.log += f'Patient chosen: {fio}\n'
+        else:
+            job.log += 'No FIO found; patient not set\n'
+        job.save(update_fields=['log'])
+
+        # 6) Создание MedicalRecord + LabFile
+        with transaction.atomic():
+            record = MedicalRecord.objects.create(
+                patient=patient,
+                doctor=None,
+                created_by=job.uploaded_by,
+                appointment_location='',
+                notes='',
+                visit_date=None,
+            )
+            created_files = 0
             for root, _, files in os.walk(tmpdir):
                 for fname in files:
-                    names.extend(extract_fio(fname))
-            names.extend(extract_fio(os.path.basename(job.archive_file.name)))
+                    path = os.path.join(root, fname)
+                    ftype = 'photo' if fname.lower().endswith(('.png', '.jpg', '.jpeg')) else 'ct_scan'
+                    with open(path, 'rb') as f:
+                        df = DjangoFile(f)
+                        lab = LabFile.objects.create(
+                            record=record,
+                            file_type=ftype,
+                            uploaded_by=job.uploaded_by,
+                        )
+                        lab.file.save(fname, df, save=True)
+                        created_files += 1
 
-            # Определить самое частое ФИО (если есть)
-            patient = None
-            if names:
-                fio, _ = Counter(names).most_common(1)[0]
-                # Пытаемся найти существующего пациента
-                patient = Patient.objects.filter(
-                    first_name__iexact=fio.split()[1] if len(fio.split())>1 else '',
-                    last_name__iexact=fio.split()[0]
-                ).first()
-                if not patient:
-                    # создаём нового пациента
-                    parts = fio.split()
-                    patient = Patient.objects.create(
-                        last_name=parts[0] if len(parts)>0 else '',
-                        first_name=parts[1] if len(parts)>1 else '',
-                        middle_name=parts[2] if len(parts)>2 else None,
-                    )
-                job.log += f'Patient: {fio}\n'
-            else:
-                job.log += 'No FIO found, patient not set\n'
+            # Привязываем record и логируем
+            job.record = record
+            job.log += f'Created record #{record.id} with {created_files} files\n'
+            job.save(update_fields=['record', 'log'])
 
-            # Создать запись MedicalRecord
-            with transaction.atomic():
-                record = MedicalRecord.objects.create(
-                    patient=patient,
-                    doctor=None,
-                    created_by=job.uploaded_by,
-                    appointment_location='',
-                    notes='',
-                    visit_date=None,
-                )
+        # 7) Завершение задачи успешно
+        job.status       = 'done'
+        job.completed_at = timezone.now()
+        job.log         += 'Processing finished successfully\n'
+        job.save(update_fields=['status', 'completed_at', 'log'])
 
-                # Для каждого файла — создать LabFile
-                for root, _, files in os.walk(tmpdir):
-                    for fname in files:
-                        path = os.path.join(root, fname)
-                        ftype = 'photo' if fname.lower().endswith(('.png', '.jpg', '.jpeg')) else 'ct_scan'
-                        with open(path, 'rb') as f:
-                            django_file = DjangoFile(f)
-                            lab = LabFile.objects.create(
-                                record=record,
-                                file_type=ftype,
-                                uploaded_by=job.uploaded_by,
-                            )
-                            lab.file.save(fname, django_file, save=True)
-                job.log += f'Created record #{record.id} and {len(files)} lab files\n'
-
-        job.status = 'done'
-        job.log += 'Processing finished successfully\n'
     except Exception as e:
-        job.status = 'failed'
-        job.log += f'Error: {str(e)}\n'
+        # В случае ошибки отмечаем статус failed и сохраняем текст ошибки
+        job.status       = 'failed'
+        job.completed_at = timezone.now()
+        job.log         += f'Error: {str(e)}\n'
+        job.save(update_fields=['status', 'completed_at', 'log'])
         raise
+
     finally:
-        job.save()
+        # Убираем временную папку
+        try:
+            import shutil
+            shutil.rmtree(tmpdir)
+        except Exception:
+            pass

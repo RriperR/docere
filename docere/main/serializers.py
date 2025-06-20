@@ -1,3 +1,5 @@
+import os
+
 from rest_framework import serializers
 
 from main.models import Patient, User, Doctor, LabFile, MedicalRecord, ArchiveJob
@@ -100,3 +102,23 @@ class ZipUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArchiveJob
         fields = ['archive_file']
+
+class ArchiveJobSerializer(serializers.ModelSerializer):
+    file_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = ArchiveJob
+        fields = [
+            'id',
+            'status',
+            'log',
+            'raw_extracted',
+            'uploaded_at',
+            'completed_at',
+            'record',      # ваш existing
+            'file_name',   # ← добавили
+        ]
+
+    def get_file_name(self, obj):
+        # возвращаем только имя, без пути
+        return os.path.basename(obj.archive_file.name or '')

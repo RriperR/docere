@@ -55,8 +55,8 @@ class Patient(models.Model):
     last_name   = models.CharField('Фамилия',max_length=150)
     middle_name = models.CharField('Отчество', max_length=150, blank=True, null=True)
     birthday    = models.DateField('Дата рождения', blank=True, null=True)
-    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Номер телефона")
-    email = models.EmailField(unique=True, verbose_name="email")
+    phone = models.CharField(blank=True, null=True, max_length=20, verbose_name="Номер телефона")
+    email = models.EmailField(blank=True, null=True, verbose_name="email")
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -93,25 +93,37 @@ class Admin(models.Model):
 
 class ArchiveJob(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'В ожидании'),
+        ('pending',    'В ожидании'),
         ('processing', 'Обрабатывается'),
-        ('failed', 'Ошибка'),
-        ('done', 'Готово'),
+        ('failed',     'Ошибка'),
+        ('done',       'Готово'),
     ]
 
-    uploaded_by = models.ForeignKey(
+    uploaded_by   = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='archive_jobs'
     )
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    status      = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
-    log         = models.TextField(blank=True)  # сюда пишем ход обработки
-    # Поле, в котором хранится путь/URL к самому архиву
-    archive_file = models.FileField(
-        upload_to='archives/%Y/%m/%d/',
-        max_length=500,
-        help_text='Исходный ZIP-архив одного пациента'
+    uploaded_at   = models.DateTimeField(auto_now_add=True)
+    completed_at  = models.DateTimeField(null=True, blank=True, verbose_name="Когда закончилась обработка")
+    status        = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
+    log           = models.TextField(blank=True)
+    archive_file  = models.FileField(upload_to='archives/%Y/%m/%d/', max_length=500)
+
+    # сырые данные разбора
+    raw_extracted = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Сырые данные разбора архива (все найденные ФИО, даты, телефоны, e-mail и т.п.)"
+    )
+
+    # ссылка на финальный MedicalRecord
+    record = models.ForeignKey(
+        'MedicalRecord',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='archive_job'
     )
 
     class Meta:
@@ -122,7 +134,7 @@ class LabFile(models.Model):
     record     = models.ForeignKey('MedicalRecord', on_delete=models.CASCADE, related_name='files')
     file_type  = models.CharField(max_length=20, choices=[('photo','Фото'),('ct_scan','КТ')])
     file       = models.FileField(upload_to='records/%Y/%m/%d/')
-    metadata   = models.JSONField(blank=True)  # EXIF, DICOM-теги и т.п.
+    metadata   = models.JSONField(blank=True, null=True)  # EXIF, DICOM-теги и т.п.
 
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

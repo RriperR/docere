@@ -76,7 +76,7 @@ services:
     hostname: redis
 
 
-  worker:
+  worker: # надо пересобирать при изменениях в коде для celery
     hostname: worker
     environment:
       - DJANGO_SETTINGS_MODULE=docere.prod

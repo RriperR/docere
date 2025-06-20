@@ -1,17 +1,13 @@
-import os
-
-from django.conf import settings
 from django.shortcuts import get_object_or_404
 
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from celery.result import AsyncResult
 
 from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob
 from .serializers import (UserRegisterSerializer, PatientSerializer, DoctorSerializer,
-                          UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer)
+                          UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer, ArchiveJobSerializer)
 from main.tasks import process_zip_task
 
 
@@ -93,19 +89,10 @@ class ProcessZipView(APIView):
         return Response({'job_id': job.id}, status=status.HTTP_202_ACCEPTED)
 
 class TaskStatusView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def get(self, request, task_id):
-        try:
-            job = ArchiveJob.objects.get(pk=task_id, uploaded_by=request.user)
-        except ArchiveJob.DoesNotExist:
-            return Response({'error': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response({
-            'job_id': job.id,
-            'status': job.status,
-            'log': job.log,
-        })
+        job = get_object_or_404(ArchiveJob, pk=task_id)
+        serializer = ArchiveJobSerializer(job)
+        return Response(serializer.data)
 
 class DoctorListAPIView(generics.ListAPIView):
     """

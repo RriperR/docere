@@ -1,57 +1,78 @@
 import re
-
 from datetime import datetime
+
+import dateparser
 import string
 
 from PIL import Image
 from PIL.ExifTags import TAGS
 
 
-def extract_fio(text):
-    fio_pattern = r'(?:^|[ \-_])([а-яА-ЯёЁ]+(?:-[а-яА-ЯёЁ]+)?[ \-_][а-яА-ЯёЁ]+[ \-_][а-яА-ЯёЁ]+(?:ович|евич|овна|евна|ична|инична))'
+def extract_fio(text: str) -> list[str]:
+    """
+    Находит ФИО вида "Фамилия Имя Отчество" с возможным дефисом в фамилии
+    и типичными русскими суффиксами отчества.
+    """
+    pattern = (
+        r'(?:^|[ \-_])'
+        r'([А-ЯЁ][а-яё]+(?:-[А-ЯЁ][а-яё]+)?'
+        r'[ \-_][А-ЯЁ][а-яё]+'
+        r'[ \-_][А-ЯЁ][а-яё]+(?:ович|евич|овна|евна|ична|инична))'
+    )
+    return re.findall(pattern, text)
 
-    fios = re.findall(fio_pattern, text)
 
-    return fios
+def extract_dob(text: str) -> list[str]:
+    """
+    Находит даты в формате "DD Month YYYY" или "D.M.YYYY" и
+    возвращает их в формате "DD.MM.YYYY".
+    """
+    # Ищем все вхождения по шаблону
+    date_pattern = r'\b(?:\d{1,2}\s[А-Яа-яЁё]+\s\d{4}|\d{1,2}[./]\d{1,2}[./]\d{4})\b'
+    found = re.findall(date_pattern, text)
+    parsed = []
+    for s in found:
+        dt = dateparser.parse(s, languages=['ru'])
+        if dt:
+            parsed.append(dt.strftime('%d.%m.%Y'))
+    return parsed
 
-def extract_dob(text):
-    import dateparser
-    date_pattern = r'\b(?:\d{1,2}\s[а-яА-Я]+\s\d{4}|\d{1,2}[./]\d{1,2}[./]\d{4})\b'
-    # Поиск всех дат в тексте
-    date_strings = re.findall(date_pattern, text)
 
-    # Распознавание дат
-    birth_dates = [dateparser.parse(date, languages=['ru']) for date in date_strings]
-    birth_dates_str = [i.strftime('%d.%m.%Y') for i in birth_dates]
-    return birth_dates_str
+def extract_phone(text: str) -> list[str]:
+    """
+    Ищет телефонные номера в различных форматах.
+    """
+    pattern = r'\+?\d{1,3}?[-.\s]?\(?\d{1,4}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}'
+    return re.findall(pattern, text)
 
-def extract_phone(text):
-    phone_pattern = r'\+?\d{1,3}?[-.\s]??\(?\d{1,4}?\)?[-.\s]??\d{1,4}[-.\s]??\d{1,9}'
-    phones = re.findall(phone_pattern, text)
-    return phones
 
-def extract_email(text):
-    email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
-    emails = re.findall(email_pattern, text)
-    return emails
+def extract_email(text: str) -> list[str]:
+    """
+    Находит email-адреса.
+    """
+    pattern = r'[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+\.[A-Za-z0-9-.]+'
+    return re.findall(pattern, text)
 
-def get_exif_date(image_path):
+
+def get_exif_date(image_path: str) -> datetime | None:
+    """
+    Возвращает DateTimeOriginal из EXIF, если есть.
+    """
     try:
-        image = Image.open(image_path)
-        exif_data = image._getexif()
-        if not exif_data:
-            return None
-        for tag_id, value in exif_data.items():
-            tag = TAGS.get(tag_id, tag_id)
-            if tag == 'DateTimeOriginal':
-                return datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+        with Image.open(image_path) as img:
+            exif = img._getexif() or {}
+        for tag_id, val in exif.items():
+            if TAGS.get(tag_id) == 'DateTimeOriginal':
+                return datetime.strptime(val, '%Y:%m:%d %H:%M:%S')
     except Exception:
-        return None
+        pass
     return None
+
 
 def is_readable(filename):
     readable_characters = string.ascii_letters + string.digits + string.punctuation + ' ' + 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
     return all(char in readable_characters for char in filename)
+
 
 def decode_filename(filename):
     # Проверяем, является ли имя читаемым
