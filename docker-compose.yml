@@ -36,7 +36,6 @@ services:
       - static_volume:/code/docere/static
       - media_volume:/code/docere/media
       - .:/code/
-      # - /home/docere_user/djangoProject1/code/prod.py:/code/docere/docere/prod.py
 
     ports:
       - "8000:8000"
@@ -48,7 +47,6 @@ services:
       dockerfile: Dockerfile
     volumes:
       - react_build:/react/dist
-    command: sh -c "echo 'Build done'"  # Не билдим каждый раз — артефакты уже в образе
     depends_on:
       - web
 

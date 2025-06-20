@@ -27,5 +27,6 @@ deploy:
       cd ~/django_project &&
       docker-compose pull &&
       docker-compose down &&
+      docker volume rm django_project_react_build || true &&
       docker-compose up -d
       '
