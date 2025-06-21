@@ -14,11 +14,11 @@ build_backend:
 build_frontend:
   stage: build
   before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin
     - |
-      cat > frontend/.env <<EOF
-      VITE_API_BASE_URL=https://docere.online/api/
-      EOF
+    - cat > frontend/.env <<EOF
+    - VITE_API_BASE_URL=https://docere.online/api/
+    - EOF
   script:
     - docker build -t riper3d/docere_frontend:$CI_COMMIT_SHA ./frontend
     - docker tag riper3d/docere_frontend:$CI_COMMIT_SHA riper3d/docere_frontend:latest
