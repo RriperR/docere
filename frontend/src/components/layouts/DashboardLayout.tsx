@@ -15,7 +15,6 @@ import {
   Shield 
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { Button } from '../common/Button';
 
 export const DashboardLayout = () => {
   const { user, logout } = useAuthStore();
@@ -173,14 +172,14 @@ export const DashboardLayout = () => {
                 >
                   <div className="hidden md:block">
                     <p className="text-sm font-medium text-gray-700">
-                      {user?.firstName} {user?.lastName}
+                      {user?.first_name} {user?.last_name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {user?.role.charAt(0).toUpperCase() + user?.role.slice(1)}
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                     </p>
                   </div>
                   <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-medium">
-                    {user?.firstName?.[0] || user?.email[0].toUpperCase()}
+                    {user?.first_name?.[0] || user?.email[0].toUpperCase()}
                   </div>
                 </button>
                 
@@ -317,12 +316,12 @@ export const DashboardLayout = () => {
                       <div className="flex items-center">
                         <div className="flex-shrink-0">
                           <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-medium">
-                            {user?.firstName?.[0] || user?.email[0].toUpperCase()}
+                            {user?.first_name?.[0] || user?.email[0].toUpperCase()}
                           </div>
                         </div>
                         <div className="ml-3">
                           <div className="text-base font-medium text-gray-800">
-                            {user?.firstName} {user?.lastName}
+                            {user?.first_name} {user?.last_name}
                           </div>
                           <div className="text-sm font-medium text-gray-500">
                             {user?.email}
