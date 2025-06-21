@@ -54,10 +54,31 @@ class UserMeSerializer(serializers.ModelSerializer):
 
 
 class PatientSerializer(serializers.ModelSerializer):
+    last_visit    = serializers.SerializerMethodField()
+    record_count  = serializers.SerializerMethodField()
+    photo_url     = serializers.ImageField(source='photo', read_only=True)
 
     class Meta:
-        model = Patient
-        fields = ['id', 'first_name', 'last_name', 'middle_name', 'birthday', 'photo']
+        model  = Patient
+        fields = [
+            'id',
+            'first_name',
+            'last_name',
+            'middle_name',
+            'birthday',
+            'email',
+            'phone',
+            'photo_url',
+            'last_visit',
+            'record_count',
+        ]
+
+    def get_record_count(self, obj):
+        return obj.medical_records.count()
+
+    def get_last_visit(self, obj):
+        last = obj.medical_records.order_by('-visit_date').first()
+        return last.visit_date if last and last.visit_date else None
 
 
 class DoctorSerializer(serializers.ModelSerializer):
@@ -74,6 +95,10 @@ class DoctorInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
         fields = ['id', 'full_name', 'photo', 'specialization', 'institution']
+
+    def get_full_name(self, obj):
+
+        return obj.get_full_name()
 
 
 class LabFileSerializer(serializers.ModelSerializer):

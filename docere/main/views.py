@@ -60,11 +60,37 @@ class PatientListCreate(generics.ListCreateAPIView):
             return Response({"error": "У вас нет прав на добавление пациентов"}, status=403)
 
 
-class PatientDelete(generics.DestroyAPIView):
+class PatientRetrieveAPIView(generics.RetrieveAPIView):
+    """
+    GET /patients/<id>/ — возвращает одного пациента по его id.
+    Доступен докторам по своим пациентам, админам, и самому пациенту.
+    """
+    queryset = Patient.objects.all()
     serializer_class = PatientSerializer
 
-    def get_queryset(self):
-        return Patient.objects.all()
+    def get_object(self):
+        patient = super().get_object()
+        user = self.request.user
+
+        # суперюзер/админ может любого
+        if user.is_superuser or getattr(user, 'role', None) == 'admin':
+            return patient
+
+        # доктор — только своих
+        if getattr(user, 'role', None) == 'doctor':
+            doc = getattr(user, 'doctor_profile', None)
+            if doc and patient in doc.patients.all():
+                return patient
+
+        # пациент — только себя
+        if getattr(user, 'role', None) == 'patient':
+            prof = getattr(user, 'patient_profile', None)
+            if prof and prof.id == patient.id:
+                return patient
+
+        # иначе — 403
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied("You do not have permission to view this patient.")
 
 
 class ProcessZipView(APIView):
@@ -88,11 +114,13 @@ class ProcessZipView(APIView):
         # 4) Отдаём клиенту job_id
         return Response({'job_id': job.id}, status=status.HTTP_202_ACCEPTED)
 
+
 class TaskStatusView(APIView):
     def get(self, request, task_id):
         job = get_object_or_404(ArchiveJob, pk=task_id)
         serializer = ArchiveJobSerializer(job)
         return Response(serializer.data)
+
 
 class DoctorListAPIView(generics.ListAPIView):
     """

@@ -80,6 +80,16 @@ class Doctor(models.Model):
     institution      = models.CharField(max_length=200, blank=True, null=True)  # e.g. 'Central Hospital'
     patients         = models.ManyToManyField("Patient", related_name="doctors")
 
+    def get_full_name(self) -> str:
+        parts = []
+        if self.last_name:
+            parts.append(self.last_name)
+        if self.first_name:
+            parts.append(self.first_name)
+        if self.middle_name:
+            parts.append(self.middle_name)
+        return " ".join(parts)
+
     def __str__(self):
         return f"Доктор {self.user.email}"
 

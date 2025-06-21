@@ -24,6 +24,9 @@ server {
 server {
     listen 443 ssl;
     server_name docere.online www.docere.online;
+
+    client_max_body_size 100M;
+
     error_log /var/log/nginx/error.log warn;
     access_log /var/log/nginx/access.log main;
 
@@ -53,6 +56,7 @@ server {
 
     # Проксирование запросов к uWSGI
     location /api/ {
+        client_max_body_size 100M;
         include /etc/nginx/uwsgi_params;
         uwsgi_pass uwsgi_app;
     }
