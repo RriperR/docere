@@ -7,7 +7,8 @@ from rest_framework.views import APIView
 
 from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob
 from .serializers import (UserRegisterSerializer, PatientSerializer, DoctorSerializer,
-                          UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer, ArchiveJobSerializer)
+                          UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer, ArchiveJobSerializer,
+                          RecentUploadSerializer)
 from main.tasks import process_zip_task
 
 
@@ -120,6 +121,17 @@ class TaskStatusView(APIView):
         job = get_object_or_404(ArchiveJob, pk=task_id)
         serializer = ArchiveJobSerializer(job)
         return Response(serializer.data)
+
+
+class RecentUploadsAPIView(generics.ListAPIView):
+    serializer_class   = RecentUploadSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # берем свои задания, отсортированные по времени загрузки (новые — первыми)
+        return ArchiveJob.objects.filter(
+            uploaded_by=self.request.user
+        ).order_by('-uploaded_at')[:10]
 
 
 class DoctorListAPIView(generics.ListAPIView):

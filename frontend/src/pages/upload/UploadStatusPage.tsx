@@ -1,3 +1,4 @@
+// src/pages/upload/UploadStatusPage.tsx
 import React, { useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -57,14 +58,15 @@ const UploadStatusPage: React.FC = () => {
     )
   }
 
+  // Деструктурируем поля в snake_case, как они приходят из API
   const {
     file,
     status,
-    uploadedAt,
-    completedAt,
     log,
-    rawExtracted,
-    recordId,
+    raw_extracted,
+    uploaded_at,
+    completed_at,
+    patient_id,
   } = currentJob
 
   const isDone = status === 'done'
@@ -95,10 +97,10 @@ const UploadStatusPage: React.FC = () => {
     ? 'Your file is being processed…'
     : 'Waiting to start.'
 
-  const fileName = file.name || '—'
-  const uploadedLabel = new Date(uploadedAt).toLocaleString()
-  const completedLabel = completedAt
-    ? new Date(completedAt).toLocaleString()
+  const fileName = file?.name ?? '—'
+  const uploadedLabel = new Date(uploaded_at).toLocaleString()
+  const completedLabel = completed_at
+    ? new Date(completed_at).toLocaleString()
     : null
 
   return (
@@ -141,14 +143,14 @@ const UploadStatusPage: React.FC = () => {
                   <p className="font-medium">{completedLabel}</p>
                 </div>
               )}
-              {recordId != null && (
+              {patient_id != null && (
                 <div className="bg-gray-100 px-3 py-2 rounded">
-                  <p className="text-gray-500">Record</p>
+                  <p className="text-gray-500">Patient</p>
                   <Link
-                    to={`/patients/${recordId}/records`}
-                    className="font-medium text-primary-600"
+                    to={`/patients/${patient_id}`}
+                    className="font-medium text-primary-600 hover:underline"
                   >
-                    View Medical Record
+                    View Patient Details
                   </Link>
                 </div>
               )}
@@ -157,15 +159,15 @@ const UploadStatusPage: React.FC = () => {
         </div>
       </Card>
 
-      {isDone && rawExtracted && (
+      {isDone && raw_extracted && (
         <Card title="Extracted Information">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(rawExtracted).map(([key, values]) => (
+            {Object.entries(raw_extracted).map(([key, values]) => (
               <div key={key}>
                 <p className="text-sm font-medium text-gray-500">
                   {FIELD_LABELS[key] ?? key}
                 </p>
-                {Array.isArray(values) && values.length > 0 ? (
+                {values.length > 0 ? (
                   <ul className="list-disc list-inside">
                     {values.map((v, i) => (
                       <li key={i} className="text-gray-900">

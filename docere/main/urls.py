@@ -11,6 +11,7 @@ urlpatterns = [
     path('patients/<int:pk>/', views.PatientRetrieveAPIView.as_view(), name='patients-detail'),
     path('process-zip/', views.ProcessZipView.as_view(), name='process_zip'),
     path('task-status/<int:task_id>/', views.TaskStatusView.as_view(), name='task_status'),
+    path('recent-uploads/', views.RecentUploadsAPIView.as_view(), name='recent-uploads'),
     path('doctors/', views.DoctorListAPIView.as_view(), name='doctor-list'),
     path(
       'doctors/<int:doctor_id>/patients/',

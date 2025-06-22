@@ -3,10 +3,11 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { useAuthStore }           from '../stores/authStore';
 
 
-const baseURL = '/api';
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+
 const api = axios.create({
   baseURL,
-});
+})
 
 // перед каждым запросом подставляем актуальный access
 api.interceptors.request.use((config) => {

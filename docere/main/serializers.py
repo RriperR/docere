@@ -128,8 +128,11 @@ class ZipUploadSerializer(serializers.ModelSerializer):
         model = ArchiveJob
         fields = ['archive_file']
 
+
 class ArchiveJobSerializer(serializers.ModelSerializer):
-    file_name = serializers.SerializerMethodField()
+    file_name  = serializers.SerializerMethodField()
+    record_id  = serializers.IntegerField(source='record.id',          read_only=True)
+    patient_id = serializers.IntegerField(source='record.patient.id',  read_only=True)
 
     class Meta:
         model  = ArchiveJob
@@ -140,10 +143,43 @@ class ArchiveJobSerializer(serializers.ModelSerializer):
             'raw_extracted',
             'uploaded_at',
             'completed_at',
-            'record',      # ваш existing
-            'file_name',   # ← добавили
+            'record_id',
+            'patient_id',
+            'file_name',
         ]
 
     def get_file_name(self, obj):
-        # возвращаем только имя, без пути
+        return os.path.basename(obj.archive_file.name or '')
+
+
+class RecentUploadSerializer(serializers.ModelSerializer):
+    patient_name = serializers.SerializerMethodField()
+    record_id    = serializers.IntegerField(source='record.id', read_only=True)
+    patient_id = serializers.SerializerMethodField()
+    file_name    = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArchiveJob
+        fields = [
+            'id',
+            'patient_name',
+            'file_name',
+            'uploaded_at',
+            'status',
+            'record_id',
+            'patient_id',
+        ]
+
+    def get_patient_name(self, obj):
+        # если запись уже обработана — берем пациента из связанного MedicalRecord
+        rec = getattr(obj, 'record', None)
+        if rec and rec.patient:
+            p = rec.patient
+            return f"{p.last_name} {p.first_name}"
+        return None
+
+    def get_patient_id(self, obj):
+        return obj.record.patient.id if obj.record and obj.record.patient else None
+
+    def get_file_name(self, obj):
         return os.path.basename(obj.archive_file.name or '')

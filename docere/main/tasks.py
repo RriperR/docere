@@ -62,7 +62,6 @@ def process_zip_task(self, job_id):
             'phones': all_phones,
             'emails': all_emails,
         }
-        print('DBG raw_extracted:', job.raw_extracted)
         job.log += (
             f'Extracted {len(all_fios)} fio(s), '
             f'{len(all_dobs)} date(s), '
@@ -80,7 +79,7 @@ def process_zip_task(self, job_id):
             job.save(update_fields=['status', 'completed_at', 'log'])
             return
 
-        # 5) Выбор самого частого ФИО → Patient
+        # 5) Выбор самого частого ФИО → Patient и привязка к доктору
         main = Counter(all_fios).most_common(1)
         patient = None
         if main:
@@ -92,20 +91,28 @@ def process_zip_task(self, job_id):
             ).first()
             if not patient:
                 patient = Patient.objects.create(
-                    last_name= parts[0] if parts else '',
-                    first_name= parts[1] if len(parts) > 1 else '',
-                    middle_name= parts[2] if len(parts) > 2 else None,
+                    last_name=parts[0] if parts else '',
+                    first_name=parts[1] if len(parts) > 1 else '',
+                    middle_name=parts[2] if len(parts) > 2 else None,
                 )
             job.log += f'Patient chosen: {fio}\n'
+            job.save(update_fields=['log'])
+
+            # Привязываем пациента к доктору (uploaded_by → doctor_profile)
+            doctor = getattr(job.uploaded_by, 'doctor_profile', None)
+            if doctor:
+                patient.doctors.add(doctor)
+                job.log += f'Patient linked to Doctor #{doctor.id}\n'
+                job.save(update_fields=['log'])
         else:
             job.log += 'No FIO found; patient not set\n'
-        job.save(update_fields=['log'])
+            job.save(update_fields=['log'])
 
         # 6) Создание MedicalRecord + LabFile
         with transaction.atomic():
             record = MedicalRecord.objects.create(
                 patient=patient,
-                doctor=None,
+                doctor=getattr(job.uploaded_by, 'doctor_profile', None),
                 created_by=job.uploaded_by,
                 appointment_location='',
                 notes='',
@@ -126,27 +133,24 @@ def process_zip_task(self, job_id):
                         lab.file.save(fname, df, save=True)
                         created_files += 1
 
-            # Привязываем record и логируем
             job.record = record
             job.log += f'Created record #{record.id} with {created_files} files\n'
             job.save(update_fields=['record', 'log'])
 
         # 7) Завершение задачи успешно
-        job.status       = 'done'
+        job.status = 'done'
         job.completed_at = timezone.now()
-        job.log         += 'Processing finished successfully\n'
+        job.log += 'Processing finished successfully\n'
         job.save(update_fields=['status', 'completed_at', 'log'])
 
     except Exception as e:
-        # В случае ошибки отмечаем статус failed и сохраняем текст ошибки
-        job.status       = 'failed'
+        job.status = 'failed'
         job.completed_at = timezone.now()
-        job.log         += f'Error: {str(e)}\n'
+        job.log += f'Error: {str(e)}\n'
         job.save(update_fields=['status', 'completed_at', 'log'])
         raise
 
     finally:
-        # Убираем временную папку
         try:
             import shutil
             shutil.rmtree(tmpdir)
