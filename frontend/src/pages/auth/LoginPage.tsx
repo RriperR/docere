@@ -109,16 +109,6 @@ const LoginPage = () => {
           </Button>
         </div>
       </form>
-
-      <div className="mt-8">
-        <div className="text-sm text-gray-500 text-center">
-          <p>For demo purposes, use:</p>
-          <p className="mt-1">Email: <code>doctor@example.com</code> for Doctor role</p>
-          <p>Email: <code>admin@example.com</code> for Admin role</p>
-          <p>Email: <code>patient@example.com</code> for Patient role</p>
-          <p>Password: anything will work</p>
-        </div>
-      </div>
     </motion.div>
   );
 };

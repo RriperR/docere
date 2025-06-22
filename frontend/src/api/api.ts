@@ -2,8 +2,10 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { useAuthStore }           from '../stores/authStore';
 
+
+const baseURL = '/api';
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL,
 });
 
 // перед каждым запросом подставляем актуальный access

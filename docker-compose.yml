@@ -9,7 +9,7 @@ services:
     env_file:
       - ./docere/.env
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       retries: 5
       timeout: 3s
@@ -85,6 +85,7 @@ services:
     command: celery -A docere.celery worker --loglevel=info
     volumes:
       - media_volume:/code/docere/media
+      - .:/code/
     links:
       - redis
     depends_on:
