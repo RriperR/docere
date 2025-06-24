@@ -3,8 +3,9 @@ import api from '../api/api'
 
 export interface Patient {
   id: string
-  firstName: string
   lastName: string
+  firstName: string
+  middleName?: string
   birthday?: string
   email?: string
   phone?: string

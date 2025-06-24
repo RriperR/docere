@@ -51,17 +51,22 @@ class PatientListCreate(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
 
-        if user.is_superuser or user.role == "admin" or user.role == "doctor":
+        # админ и доктор
+        if user.is_superuser or user.role in ("admin", "doctor"):
             patient = serializer.save()
-
-            # Если доктор создаёт пациента – автоматически прикрепляем его
             if user.role == "doctor":
-                doctor, _ = Doctor.objects.get_or_create(user=user)  # Создаём, если нет
+                # автоматически прикрепляем пациента к доктору
+                doctor, _ = Doctor.objects.get_or_create(user=user)
                 patient.doctors.add(doctor)
+            return
 
-            return patient
-        else:
-            return Response({"error": "У вас нет прав на добавление пациентов"}, status=403)
+        # пациент — создаём карточку, привязывая её к себе
+        if user.role == "patient":
+            serializer.save(user=user)
+            return
+
+        # все остальные — ошибка
+        return Response({"error": "У вас нет прав на добавление пациентов"}, status=403)
 
 
 class PatientRetrieveAPIView(generics.RetrieveAPIView):
