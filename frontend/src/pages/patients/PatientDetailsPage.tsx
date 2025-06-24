@@ -10,6 +10,7 @@ import { Button } from '../../components/common/Button'
 import { Tabs } from '../../components/common/Tabs'
 import { usePatientsStore } from '../../stores/patientsStore'
 import type { PatientRecord, DoctorInfo } from '../../stores/patientsStore'
+import { ShareCard } from '../../components/ShareCard'
 
 type TabId = 'history' | 'files' | 'audit'
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
@@ -186,26 +187,43 @@ const PatientDetailsPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Заголовок */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      {/* === HEADER === */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <Link
           to="/patients"
           className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 mb-4"
         >
           <ArrowLeft className="mr-1 h-4 w-4" /> Back to Patient List
         </Link>
+
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {currentPatient.firstName} {currentPatient.lastName}
-          </h1>
-          <Button variant="primary">Add Record</Button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {currentPatient.firstName} {currentPatient.lastName}
+            </h1>
+            <p className="text-gray-500">Patient ID: {currentPatient.id}</p>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <Button variant="primary">Add Record</Button>
+            {/* Кнопка шаринга */}
+            <ShareCard patientId={Number(currentPatient.id!)} />
+          </div>
         </div>
-        <p className="text-gray-500">Patient ID: {currentPatient.id}</p>
       </motion.div>
 
-      {/* Инфо-карточки */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Личные */}
+      {/* === INFO CARDS === */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+      >
+        {/* Personal Info */}
         <Card icon={<User className="h-5 w-5" />} title="Personal Information">
           <div className="space-y-4">
             {[
@@ -230,7 +248,7 @@ const PatientDetailsPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Сводка */}
+        {/* Records Summary */}
         <Card icon={<FileText className="h-5 w-5" />} title="Medical Records">
           <div className="space-y-4">
             <div>
@@ -251,7 +269,7 @@ const PatientDetailsPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Активность */}
+        {/* Recent Activity */}
         <Card icon={<User className="h-5 w-5" />} title="Recent Activity">
           <div className="space-y-4">
             {patientRecords.slice(0, 3).map((rec) => {
@@ -269,9 +287,14 @@ const PatientDetailsPage: React.FC = () => {
         </Card>
       </motion.div>
 
-      {/* Табы и контент */}
+      {/* === TABS === */}
       <Card>
-        <Tabs tabs={tabs} defaultTab="history" onChange={(t) => setActiveTab(t as TabId)} className="mb-6" />
+        <Tabs
+          tabs={tabs}
+          defaultTab="history"
+          onChange={(t) => setActiveTab(t as TabId)}
+          className="mb-6"
+        />
 
         {activeTab === 'history' && (
           <div className="space-y-6">
@@ -281,7 +304,9 @@ const PatientDetailsPage: React.FC = () => {
           </div>
         )}
         {activeTab === 'files' && (
-          <div className="py-10 text-center text-gray-500">Здесь отображаются все файлы записи.</div>
+          <div className="py-10 text-center text-gray-500">
+            Здесь отображаются все файлы записи.
+          </div>
         )}
         {activeTab === 'audit' && (
           <div className="py-10 text-center text-gray-500">В разработке…</div>

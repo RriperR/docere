@@ -70,9 +70,14 @@ export const DashboardLayout = () => {
       ],
       patient: [
         {
-          path: `/patients/${user?.id}`,
-          label: 'My Records',
-          icon: <User className="h-5 w-5" />,
+          path: '/upload',
+          label: 'Upload Archive',
+          icon: <Upload className="h-5 w-5" />,
+        },
+        {
+          path: '/patients',
+          label: 'Patients',
+          icon: <Users className="h-5 w-5" />,
         },
         {
           path: '/roles/request',

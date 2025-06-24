@@ -1,14 +1,15 @@
 from django.shortcuts import get_object_or_404
 
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 
-from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob
+from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob, ShareRequest
 from .serializers import (UserRegisterSerializer, PatientSerializer, DoctorSerializer,
                           UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer, ArchiveJobSerializer,
-                          RecentUploadSerializer)
+                          RecentUploadSerializer, ShareRequestCreateSerializer, ShareRequestSerializer)
 from main.tasks import process_zip_task
 
 
@@ -38,8 +39,10 @@ class PatientListCreate(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if not user.is_authenticated or user.role == 'patient':
+        if not user.is_authenticated:
             return Patient.objects.none()
+        if user.role == 'patient':
+            return Patient.objects.filter(user=user)
         if user.is_superuser or user.role == "admin":
             return Patient.objects.all()
         # доктор
@@ -202,3 +205,47 @@ class PatientRecordListAPIView(generics.ListAPIView):
 
         # всем остальным — пусто
         return MedicalRecord.objects.none()
+
+
+class ShareRequestViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'doctor':
+            # врачи видят свои отправленные
+            return ShareRequest.objects.filter(from_user=user)
+        # пациенты — входящие
+        return ShareRequest.objects.filter(to_user=user)
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ShareRequestCreateSerializer
+        return ShareRequestSerializer
+
+    def create(self, request, *args, **kwargs):
+        # 1) валидируем входящие patient_id и to_email
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # 2) сохраняем (внутри create() create-сериализатора проставится from_user и найдётся to_user по email)
+        share = serializer.save()
+
+        # 3) отдаем «полный» сериализатор в ответ
+        output = ShareRequestSerializer(share, context={'request': request})
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def respond(self, request, pk=None):
+        share = get_object_or_404(ShareRequest, pk=pk)
+
+        # только тот, кому адресовали, может отвечать
+        if share.to_user != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        if bool(request.data.get('accepted')):
+            share.accept()
+        else:
+            share.decline()
+
+        return Response(self.get_serializer(share).data)

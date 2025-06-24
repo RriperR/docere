@@ -1,8 +1,13 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
 from . import views
 
+
 app_name = 'main'
+
+router = DefaultRouter()
+router.register(r'share-requests', views.ShareRequestViewSet, basename='share-request')
 
 urlpatterns = [
     path('user/register/', views.CreateUserView.as_view(), name='user-register'),
@@ -23,4 +28,4 @@ urlpatterns = [
         views.PatientRecordListAPIView.as_view(),
         name='patient-records'
     ),
-]
+] + router.urls

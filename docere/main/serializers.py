@@ -1,8 +1,9 @@
 import os
 
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
-from main.models import Patient, User, Doctor, LabFile, MedicalRecord, ArchiveJob
+from main.models import Patient, User, Doctor, LabFile, MedicalRecord, ArchiveJob, ShareRequest
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -183,3 +184,54 @@ class RecentUploadSerializer(serializers.ModelSerializer):
 
     def get_file_name(self, obj):
         return os.path.basename(obj.archive_file.name or '')
+
+
+class ShareRequestCreateSerializer(serializers.ModelSerializer):
+    patient_id = serializers.IntegerField(write_only=True)
+    to_email   = serializers.EmailField(write_only=True)
+
+    class Meta:
+        model = ShareRequest
+        fields = ['patient_id', 'to_email']
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+
+        # 1) загрузим Patient по ID и проверим, что этот врач с ним связан
+        patient = get_object_or_404(Patient, pk=attrs['patient_id'])
+        if not patient.doctors.filter(user=user).exists():
+            raise serializers.ValidationError("You're not assigned to this patient")
+
+        # 2) сохраним Patient для use в create()
+        attrs['patient'] = patient
+        return attrs
+
+    def create(self, validated_data):
+        patient   = validated_data.pop('patient')
+        to_email  = validated_data.pop('to_email')
+        from_user = self.context['request'].user
+
+        # найдём пользователя, которому шлём запрос, если уже зарегистрирован
+        to_user = User.objects.filter(email__iexact=to_email).first()
+
+        return ShareRequest.objects.create(
+            from_user=from_user,
+            to_user=to_user,
+            to_email=to_email,
+            patient=patient,
+            status=ShareRequest.STATUS_PENDING,
+        )
+
+
+class ShareRequestSerializer(serializers.ModelSerializer):
+    from_user = serializers.StringRelatedField()
+    to_email = serializers.EmailField(read_only=True)
+    to_user  = serializers.StringRelatedField(read_only=True)
+    patient  = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model  = ShareRequest
+        fields = [
+            'id', 'from_user', 'to_email', 'to_user', 'patient',
+            'status', 'created_at', 'responded_at'
+        ]
