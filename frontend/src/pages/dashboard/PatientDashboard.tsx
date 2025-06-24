@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FileText, User, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
+import {FileText, CheckCircle, Clock, AlertTriangle, Upload} from 'lucide-react'
 import { Card } from '../../components/common/Card'
 import { Button } from '../../components/common/Button'
 import { useAuthStore } from '../../stores/authStore'
@@ -54,8 +54,6 @@ const PatientDashboard: React.FC = () => {
   const {
     firstName = 'Patient',
     lastName = '',
-    email = '',
-    birthday,
   } = currentPatient ?? {}
 
   return (
@@ -75,58 +73,59 @@ const PatientDashboard: React.FC = () => {
       </motion.div>
 
       <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8"
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8"
       >
         <motion.div variants={item}>
           <Card
-            icon={<FileText className="h-5 w-5" />}
-            title="Medical Records"
-            hoverable
-            onClick={() => window.location.href = `/patients/${user?.id}`}
-            className="h-full"
+              icon={<FileText className="h-5 w-5"/>}
+              title="Medical Cards"
+              hoverable
+              onClick={() => window.location.href = `/patients`}
+              className="h-full"
           >
             <div className="flex items-baseline mb-4">
               <span className="text-3xl font-bold text-primary-600">
-                {patientRecords.length}
+                ?
+              </span>
+              <span className="ml-1 text-gray-500">cards</span>
+              <span className="text-3xl font-bold text-primary-600">
+                ?
               </span>
               <span className="ml-1 text-gray-500">records</span>
             </div>
             <Button variant="outline" size="sm">
-              View All Records
+              View All Cards
             </Button>
           </Card>
         </motion.div>
 
-        <motion.div variants={item}>
-          <Card icon={<User className="h-5 w-5" />} title="Your Information" hoverable className="h-full">
-            <ul className="space-y-2 text-gray-600 mb-4">
-              <li>
-                <span className="font-medium">Name:</span> {firstName} {lastName}
-              </li>
-              <li>
-                <span className="font-medium">Email:</span> {email}
-              </li>
-              <li>
-                <span className="font-medium">Birth Date:</span>{' '}
-                {birthday ?? 'Not provided'}
-              </li>
-            </ul>
-            <Button variant="outline" size="sm">
-              Update Profile
+        <motion.div variants={{hidden: {opacity: 0, y: 20}, show: {opacity: 1, y: 0}}}>
+          <Card
+              icon={<Upload className="h-5 w-5"/>}
+              title="Upload Archive"
+              hoverable
+              onClick={() => (window.location.href = '/upload')}
+              className="h-full"
+          >
+            <p className="text-gray-500 mb-4">
+              Upload and process new medical records
+            </p>
+            <Button variant="primary" size="sm">
+              Upload Files
             </Button>
           </Card>
         </motion.div>
 
         <motion.div variants={item}>
           <Card
-            icon={<Clock className="h-5 w-5" />}
-            title="Doctor Role"
-            hoverable
-            onClick={() => (window.location.href = '/roles/request')}
-            className="h-full"
+              icon={<Clock className="h-5 w-5"/>}
+              title="Doctor Role"
+              hoverable
+              onClick={() => (window.location.href = '/roles/request')}
+              className="h-full"
           >
             <p className="text-gray-500 mb-4">
               Request doctor role privileges to manage patient records
@@ -139,19 +138,19 @@ const PatientDashboard: React.FC = () => {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.5 }}
+          initial={{opacity: 0, y: 20}}
+          animate={{opacity: 1, y: 0}}
+          transition={{delay: 0.3, duration: 0.5}}
       >
         <Card title="Your Medical Records">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">

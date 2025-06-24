@@ -22,8 +22,7 @@ const AdminPanelPage = lazy(() => import('./pages/admin/AdminPanelPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const AccountSettingsPage = lazy(() => import('./pages/settings/AccountSettingsPage'));
 const ReviewRequestsPage = lazy(() => import('./pages/roles/ReviewRequestsPage'));
-const ShareRequestForm  = lazy(() => import('./pages/ShareRequestForm'));
-const ShareRequestsPage  = lazy(() => import('./pages/ShareRequestsPage'));
+const ShareRequestsPage = lazy(() => import('./pages/ShareRequestsPage.tsx'));
 
 function App() {
   const { isAuthenticated, user } = useAuthStore();
@@ -89,7 +88,7 @@ function App() {
             <Route 
               path="/upload" 
               element={
-                <RoleRoute allowedRoles={['doctor']}>
+                <RoleRoute allowedRoles={['doctor', 'admin', 'patient']}>
                   <UploadPage />
                 </RoleRoute>
               } 
@@ -167,10 +166,7 @@ function App() {
           } 
         />
 
-        {/* для доктора: форма отправки */}
-        <Route path="/share/new" element={<ShareRequestForm />} />
-        {/* для и доктора, и пациента: список запросов */}
-        <Route path="/share/requests" element={<ShareRequestsPage />} />
+        <Route path="/share-requests" element={<ShareRequestsPage />} />
 
         {/* 404 page */}
         <Route path="*" element={<NotFoundPage />} />

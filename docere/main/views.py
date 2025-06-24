@@ -86,10 +86,9 @@ class PatientRetrieveAPIView(generics.RetrieveAPIView):
             if doc and patient in doc.patients.all():
                 return patient
 
-        # пациент — только себя
+        # пациент — только свои
         if getattr(user, 'role', None) == 'patient':
-            prof = getattr(user, 'patient_profile', None)
-            if prof and prof.id == patient.id:
+            if patient.user_id == user.id:
                 return patient
 
         # иначе — 403
@@ -199,8 +198,7 @@ class PatientRecordListAPIView(generics.ListAPIView):
         # Пациент может смотреть только свою карточку
         if getattr(user, 'role', None) == 'patient':
             # связанный Patient через OneToOne
-            patient_profile = getattr(user, 'patient_profile', None)
-            if patient_profile and patient_profile.id == patient.id:
+            if patient.user_id == user.id:
                 return MedicalRecord.objects.filter(patient=patient)
 
         # всем остальным — пусто
@@ -213,10 +211,15 @@ class ShareRequestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'doctor':
-            # врачи видят свои отправленные
-            return ShareRequest.objects.filter(from_user=user)
+            qs = ShareRequest.objects.filter(from_user=user)
+        else:
+            qs = ShareRequest.objects.filter(to_user=user)
+
+        patient_id = self.request.query_params.get('patient_id')
+        if patient_id is not None:
+            qs = qs.filter(patient_id=patient_id)
         # пациенты — входящие
-        return ShareRequest.objects.filter(to_user=user)
+        return qs
 
     def get_serializer_class(self):
         if self.action == 'create':

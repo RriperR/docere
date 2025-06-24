@@ -228,10 +228,14 @@ class ShareRequestSerializer(serializers.ModelSerializer):
     to_email = serializers.EmailField(read_only=True)
     to_user  = serializers.StringRelatedField(read_only=True)
     patient  = serializers.PrimaryKeyRelatedField(read_only=True)
+    patient_name = serializers.SerializerMethodField()
 
     class Meta:
         model  = ShareRequest
         fields = [
-            'id', 'from_user', 'to_email', 'to_user', 'patient',
+            'id', 'from_user', 'to_email', 'to_user', 'patient', 'patient_name',
             'status', 'created_at', 'responded_at'
         ]
+
+    def get_patient_name(self, obj):
+        return obj.patient.get_full_name()

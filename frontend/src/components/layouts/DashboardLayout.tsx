@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ActivitySquare, 
   Users, 
-  Upload, 
-  User, 
+  Upload,
   LayoutDashboard, 
   Settings, 
   LogOut, 
@@ -76,7 +75,7 @@ export const DashboardLayout = () => {
         },
         {
           path: '/patients',
-          label: 'Patients',
+          label: 'Cards',
           icon: <Users className="h-5 w-5" />,
         },
         {

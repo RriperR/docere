@@ -39,7 +39,7 @@ class User(AbstractUser):
         return self.get_full_name()
 
     def __str__(self):
-        return self.phone
+        return self.full_name
 
 
 class PersonBase(models.Model):
