@@ -28,4 +28,9 @@ urlpatterns = [
         views.PatientRecordListCreateAPIView.as_view(),
         name='patient-records'
     ),
+    path(
+        'patients/<int:patient_id>/records/<int:pk>/',
+        views.PatientRecordDetailAPIView.as_view(),
+        name='patient-record-detail'
+    ),
 ] + router.urls

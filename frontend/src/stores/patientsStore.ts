@@ -54,6 +54,11 @@ interface PatientsState {
   fetchPatientById: (id: string) => Promise<void>
   fetchPatientRecords: (id: string) => Promise<void>
   createPatientRecord: (patientId: string, form: FormData) => Promise<void>
+  updatePatientRecord: (
+    patientId: string,
+    recordId: string,
+    form: FormData
+  ) => Promise<void>
   searchPatients: (query: string) => void
   filterPatientsByDate: (startDate?: string, endDate?: string) => void
 }
@@ -156,6 +161,27 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
       }))
     } catch (e: any) {
       set({ error: e.response?.data || 'Failed to create record' })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  updatePatientRecord: async (patientId, recordId, form) => {
+    set({ isLoading: true, error: null })
+    try {
+      const { data: rec } = await api.patch<any>(
+        `/patients/${patientId}/records/${recordId}/`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      // обновляем в списке
+      set(state => ({
+        patientRecords: state.patientRecords.map(r =>
+          r.id === rec.id ? rec : r
+        ),
+      }))
+    } catch (e: any) {
+      set({ error: e.response?.data || 'Failed to update record' })
     } finally {
       set({ isLoading: false })
     }
