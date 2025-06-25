@@ -1,12 +1,12 @@
 from django.shortcuts import get_object_or_404
 
-from rest_framework import generics, status, viewsets
+from rest_framework import generics, status, viewsets, parsers
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 
-from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob, ShareRequest
+from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob, ShareRequest, LabFile
 from .serializers import (UserRegisterSerializer, PatientSerializer, DoctorSerializer,
                           UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer, ArchiveJobSerializer,
                           RecentUploadSerializer, ShareRequestCreateSerializer, ShareRequestSerializer)
@@ -32,6 +32,7 @@ class UserMeView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class PatientListCreate(generics.ListCreateAPIView):
@@ -101,44 +102,98 @@ class PatientRetrieveAPIView(generics.RetrieveAPIView):
         raise PermissionDenied("You do not have permission to view this patient.")
 
 
-class ProcessZipView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        # 1) Сериализуем пришедший файл
-        serializer = ZipUploadSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # 2) Создаём ArchiveJob
-        job: ArchiveJob = serializer.save(
-            uploaded_by=request.user,
-            status='pending'
-        )
-
-        # 3) Запускаем Celery-таск по job.id
-        process_zip_task.delay(job.id)
-
-        # 4) Отдаём клиенту job_id
-        return Response({'job_id': job.id}, status=status.HTTP_202_ACCEPTED)
-
-
-class TaskStatusView(APIView):
-    def get(self, request, task_id):
-        job = get_object_or_404(ArchiveJob, pk=task_id)
-        serializer = ArchiveJobSerializer(job)
-        return Response(serializer.data)
-
-
-class RecentUploadsAPIView(generics.ListAPIView):
-    serializer_class   = RecentUploadSerializer
+class PatientRecordListCreateAPIView(generics.ListCreateAPIView):
+    """
+    GET  /patients/{patient_id}/records/  — список записей
+    POST /patients/{patient_id}/records/  — создать новую запись
+    """
+    serializer_class   = MedicalRecordSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # берем свои задания, отсортированные по времени загрузки (новые — первыми)
-        return ArchiveJob.objects.filter(
-            uploaded_by=self.request.user
-        ).order_by('-uploaded_at')[:10]
+        user       = self.request.user
+        patient_id = self.kwargs['patient_id']
+        patient    = get_object_or_404(Patient, pk=patient_id)
+
+        # суперюзер или админ
+        if user.is_superuser or user.role == 'admin':
+            return MedicalRecord.objects.filter(patient=patient)
+
+        # доктор — только своих пациентов
+        if user.role == 'doctor':
+            doc = getattr(user, 'doctor_profile', None)
+            if doc and patient in doc.patients.all():
+                return MedicalRecord.objects.filter(patient=patient)
+
+        # пациент — только свои записи
+        if user.role == 'patient':
+            if patient.user_id == user.id:
+                return MedicalRecord.objects.filter(patient=patient)
+
+        # иначе — пусто
+        return MedicalRecord.objects.none()
+
+    def perform_create(self, serializer):
+        # 1. Сохраняем сам MedicalRecord
+        patient        = get_object_or_404(Patient, pk=self.kwargs['patient_id'])
+        doctor_profile = getattr(self.request.user, 'doctor_profile', None)
+        record = serializer.save(
+            patient=patient,
+            created_by=self.request.user,
+            doctor=doctor_profile
+        )
+
+        # 2. Обрабатываем файлы из request.FILES.getlist('files')
+        for uploaded in self.request.FILES.getlist('files'):
+            # file_type можно вычислить по расширению или принять как отдельное поле
+            LabFile.objects.create(
+                record=record,
+                file=uploaded,
+                file_type='photo',            # или 'ct_scan' и т.п.
+                uploaded_by=self.request.user
+            )
+
+class PatientRecordDetailAPIView(generics.RetrieveUpdateAPIView):
+    """
+    GET    /patients/{patient_id}/records/{pk}/    — получить одну запись
+    PATCH  /patients/{patient_id}/records/{pk}/    — частично обновить запись
+    """
+    serializer_class   = MedicalRecordSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes     = [
+        parsers.JSONParser,
+        parsers.FormParser,
+        parsers.MultiPartParser,
+    ]
+
+    def get_queryset(self):
+        # повторяем ту же логику, что и в ListCreate
+        user       = self.request.user
+        patient_id = self.kwargs['patient_id']
+        patient    = get_object_or_404(Patient, pk=patient_id)
+
+        if user.is_superuser or user.role == 'admin':
+            return MedicalRecord.objects.filter(patient=patient)
+        if user.role == 'doctor':
+            doc = getattr(user, 'doctor_profile', None)
+            if doc and patient in doc.patients.all():
+                return MedicalRecord.objects.filter(patient=patient)
+        if user.role == 'patient' and patient.user_id == user.id:
+            return MedicalRecord.objects.filter(patient=patient)
+        return MedicalRecord.objects.none()
+
+    def perform_update(self, serializer):
+        # 1) сохраняем изменения полей notes, visit_date, appointment_location
+        record = serializer.save()
+        # 2) обрабатываем новые файлы (добавляем к уже существующим)
+        for f in self.request.FILES.getlist('files'):
+            LabFile.objects.create(
+                record=record,
+                file=f,
+                file_type='photo',
+                uploaded_by=self.request.user
+            )
+
 
 
 class DoctorListAPIView(generics.ListAPIView):
@@ -173,41 +228,47 @@ class DoctorPatientsAPIView(generics.ListAPIView):
         return Patient.objects.none()
 
 
-class PatientRecordListAPIView(generics.ListAPIView):
-    """
-    GET /patients/{patient_id}/records/
-    Врач видит записи только своего пациента,
-    пациент — только свои собственные.
-    """
-    serializer_class   = MedicalRecordSerializer
+
+class ProcessZipView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # 1) Сериализуем пришедший файл
+        serializer = ZipUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2) Создаём ArchiveJob
+        job: ArchiveJob = serializer.save(
+            uploaded_by=request.user,
+            status='pending'
+        )
+
+        # 3) Запускаем Celery-таск по job.id
+        process_zip_task.delay(job.id)
+
+        # 4) Отдаём клиенту job_id
+        return Response({'job_id': job.id}, status=status.HTTP_202_ACCEPTED)
+
+
+class TaskStatusView(APIView):
+    def get(self, request, task_id):
+        job = get_object_or_404(ArchiveJob, pk=task_id)
+        serializer = ArchiveJobSerializer(job)
+        return Response(serializer.data)
+
+
+
+class RecentUploadsAPIView(generics.ListAPIView):
+    serializer_class   = RecentUploadSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user       = self.request.user
-        patient_id = self.kwargs['patient_id']
+        # берем свои задания, отсортированные по времени загрузки (новые — первыми)
+        return ArchiveJob.objects.filter(
+            uploaded_by=self.request.user
+        ).order_by('-uploaded_at')[:10]
 
-        # Убедимся, что пациент существует
-        patient = get_object_or_404(Patient, pk=patient_id)
-
-        # Если админ — всё ок
-        if user.is_superuser or getattr(user, 'role', None) == 'admin':
-            return MedicalRecord.objects.filter(patient=patient)
-
-        # Врач может смотреть только своих пациентов
-        if getattr(user, 'role', None) == 'doctor':
-            # проверяем ManyToMany связь через related_name="doctors"
-            doctor_profile = getattr(user, 'doctor_profile', None)
-            if doctor_profile and patient in doctor_profile.patients.all():
-                return MedicalRecord.objects.filter(patient=patient)
-
-        # Пациент может смотреть только свою карточку
-        if getattr(user, 'role', None) == 'patient':
-            # связанный Patient через OneToOne
-            if patient.user_id == user.id:
-                return MedicalRecord.objects.filter(patient=patient)
-
-        # всем остальным — пусто
-        return MedicalRecord.objects.none()
 
 
 class ShareRequestViewSet(viewsets.ModelViewSet):

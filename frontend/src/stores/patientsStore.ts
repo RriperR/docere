@@ -1,3 +1,4 @@
+// src/stores/patientStore.ts
 import { create } from 'zustand'
 import api from '../api/api'
 
@@ -52,6 +53,7 @@ interface PatientsState {
   fetchPatients: () => Promise<void>
   fetchPatientById: (id: string) => Promise<void>
   fetchPatientRecords: (id: string) => Promise<void>
+  createPatientRecord: (patientId: string, form: FormData) => Promise<void>
   searchPatients: (query: string) => void
   filterPatientsByDate: (startDate?: string, endDate?: string) => void
 }
@@ -68,22 +70,19 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const { data } = await api.get<any[]>('/patients/')
-      const patients: Patient[] = data.map((p) => ({
-        id:          p.id,
-        firstName:   p.first_name,
-        lastName:    p.last_name,
-        birthday:    p.birthday,
-        email:       p.email ?? undefined,
-        phone:       p.phone ?? undefined,
-        photoUrl:    p.photo_url ?? undefined,
-        lastVisit:   p.last_visit ?? undefined,
+      const patients: Patient[] = data.map(p => ({
+        id: p.id,
+        firstName: p.first_name,
+        lastName: p.last_name,
+        middleName: p.middle_name ?? undefined,
+        birthday: p.birthday,
+        email: p.email ?? undefined,
+        phone: p.phone ?? undefined,
+        photoUrl: p.photo_url ?? undefined,
+        lastVisit: p.last_visit ?? undefined,
         recordCount: p.record_count ?? 0,
       }))
-      set({
-        patients,
-        filteredPatients: patients,
-        isLoading: false,
-      })
+      set({ patients, filteredPatients: patients, isLoading: false })
     } catch (e: any) {
       set({
         error: e.response?.data?.detail || 'Failed to fetch patients',
@@ -92,19 +91,20 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     }
   },
 
-  fetchPatientById: async (id: string) => {
+  fetchPatientById: async id => {
     set({ isLoading: true, error: null, currentPatient: null })
     try {
       const { data: p } = await api.get<any>(`/patients/${id}/`)
       const patient: Patient = {
-        id:          p.id,
-        firstName:   p.first_name,
-        lastName:    p.last_name,
-        birthday:    p.birthday,
-        email:       p.email ?? undefined,
-        phone:       p.phone ?? undefined,
-        photoUrl:    p.photo_url ?? undefined,
-        lastVisit:   p.last_visit ?? undefined,
+        id: p.id,
+        firstName: p.first_name,
+        lastName: p.last_name,
+        middleName: p.middle_name ?? undefined,
+        birthday: p.birthday,
+        email: p.email ?? undefined,
+        phone: p.phone ?? undefined,
+        photoUrl: p.photo_url ?? undefined,
+        lastVisit: p.last_visit ?? undefined,
         recordCount: p.record_count ?? 0,
       }
       set({ currentPatient: patient, isLoading: false })
@@ -116,19 +116,19 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     }
   },
 
-  fetchPatientRecords: async (patientId: string) => {
+  fetchPatientRecords: async patientId => {
     set({ isLoading: true, error: null, patientRecords: [] })
     try {
       const { data } = await api.get<any[]>(`/patients/${patientId}/records/`)
-      const recs: PatientRecord[] = data.map((r) => ({
-        id:                   r.id,
-        visit_date:           r.visit_date,
-        created_at:           r.created_at,
+      const recs: PatientRecord[] = data.map(r => ({
+        id: r.id,
+        visit_date: r.visit_date,
+        created_at: r.created_at,
         appointment_location: r.appointment_location,
-        notes:                r.notes,
-        doctor:               r.doctor ?? undefined,
-        lab_files:            r.lab_files ?? [],
-        versions:             r.versions ?? [],
+        notes: r.notes,
+        doctor: r.doctor ?? undefined,
+        lab_files: r.lab_files ?? [],
+        versions: r.versions ?? [],
       }))
       set({ patientRecords: recs, isLoading: false })
     } catch (e: any) {
@@ -139,7 +139,29 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     }
   },
 
-  searchPatients: (query: string) => {
+  createPatientRecord: async (patientId, form) => {
+    set({ isLoading: true, error: null })
+    try {
+      // multipart/form-data
+      const { data: rec } = await api.post<any>(
+        `/patients/${patientId}/records/`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      set(state => ({
+        patientRecords: [rec, ...state.patientRecords],
+        currentPatient: state.currentPatient
+          ? { ...state.currentPatient, lastVisit: rec.visit_date ?? state.currentPatient.lastVisit }
+          : state.currentPatient,
+      }))
+    } catch (e: any) {
+      set({ error: e.response?.data || 'Failed to create record' })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  searchPatients: query => {
     const patients = get().patients
     if (!query.trim()) {
       set({ filteredPatients: patients })
@@ -148,7 +170,7 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     const q = query.toLowerCase()
     set({
       filteredPatients: patients.filter(
-        (p) =>
+        p =>
           p.firstName.toLowerCase().includes(q) ||
           p.lastName.toLowerCase().includes(q) ||
           (p.email ?? '').toLowerCase().includes(q)
@@ -156,14 +178,14 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     })
   },
 
-  filterPatientsByDate: (startDate?: string, endDate?: string) => {
+  filterPatientsByDate: (startDate, endDate) => {
     const patients = get().patients
     if (!startDate && !endDate) {
       set({ filteredPatients: patients })
       return
     }
     set({
-      filteredPatients: patients.filter((p) => {
+      filteredPatients: patients.filter(p => {
         if (!p.lastVisit) return false
         if (startDate && p.lastVisit < startDate) return false
         if (endDate && p.lastVisit > endDate) return false
