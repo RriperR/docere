@@ -2,13 +2,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, X, Plus } from 'lucide-react';
+import {ArrowLeft, FileText, X, Plus, User} from 'lucide-react';
 import { format } from 'date-fns';
 import { useDropzone } from 'react-dropzone';
 
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Tabs } from '../../components/common/Tabs';
+import { AddRecordModal } from '../../components/AddRecordModal'
 import {
   usePatientsStore,
   PatientRecord,
@@ -35,8 +36,9 @@ export default function PatientDetailsPage() {
     updatePatientRecord,
   } = usePatientsStore();
 
-  const [activeTab, setActiveTab] = useState<TabId>('history');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab]       = useState<TabId>('history');
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editingId, setEditingId]       = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -56,20 +58,83 @@ export default function PatientDetailsPage() {
   return (
     <div className="space-y-8">
       {/* HEADER */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <Link
           to="/patients"
-          className="inline-flex items-center text-sm text-primary-600 hover:underline mb-4"
+          className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 mb-4"
         >
-          <ArrowLeft className="mr-1" /> Back to Patients
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Patient List
         </Link>
-
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">
-            {currentPatient.firstName} {currentPatient.lastName}
-          </h1>
-          <ShareCard patientId={Number(currentPatient.id)} />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {currentPatient.firstName} {currentPatient.lastName}
+            </h1>
+            <p className="text-gray-500">Patient ID: {currentPatient.id}</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button variant="primary" onClick={() => setShowAddModal(true)}>
+              Add Record
+            </Button>
+            <ShareCard patientId={Number(currentPatient.id)} />
+          </div>
         </div>
+      </motion.div>
+
+      {showAddModal && (
+        <AddRecordModal
+          patientId={id!}
+          onClose={() => {
+            setShowAddModal(false)
+            void fetchPatientRecords(id!)
+          }}
+        />
+      )}
+
+
+      {/* INFO CARDS */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+      >
+        <Card icon={<User className="h-5 w-5" />} title="Personal Information">
+          <div className="space-y-4">
+            {[
+              ['Date of Birth', currentPatient.birthday],
+              ['Email', currentPatient.email],
+              ['Phone', currentPatient.phone],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <p className="text-sm font-medium text-gray-500">{label}</p>
+                <p className="mt-1">{value || '—'}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card icon={<FileText className="h-5 w-5" />} title="Medical Records">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total Records</p>
+              <p className="mt-1 text-2xl font-bold text-primary-600">{patientRecords.length}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Last Updated</p>
+              <p className="mt-1">{currentPatient.lastVisit || 'No records'}</p>
+            </div>
+          </div>
+        </Card>
+        <Card icon={<User className="h-5 w-5" />} title="Recent Activity">
+          <div className="space-y-4">
+            {patientRecords.slice(0, 3).map(rec => (
+              <div key={rec.id} className="text-sm">
+                <p className="font-medium">{rec.notes || 'Record'}</p>
+                <p className="text-gray-500">{rec.visit_date || '—'}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
       </motion.div>
 
       {/* TABS */}
