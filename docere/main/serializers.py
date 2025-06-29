@@ -122,7 +122,6 @@ class DoctorInfoSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'photo', 'specialization', 'institution']
 
     def get_full_name(self, obj):
-
         return obj.get_full_name()
 
 
@@ -212,100 +211,102 @@ class RecentUploadSerializer(serializers.ModelSerializer):
 
 class RecordShareSerializer(serializers.ModelSerializer):
     record_id = serializers.IntegerField(source='record.id', read_only=True)
-    doctor_id = serializers.IntegerField(source='doctor.id', read_only=True)
-    status    = serializers.CharField(read_only=True)
+    to_user   = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model  = RecordShare
-        fields = ['id', 'record_id', 'doctor_id', 'status', 'created', 'updated']
+        fields = ['id', 'record_id', 'to_user', 'status', 'created', 'updated']
+        read_only_fields = ['id', 'record_id', 'to_user', 'created', 'updated']
 
 
 class ShareRequestCreateSerializer(serializers.ModelSerializer):
     patient_id = serializers.IntegerField(write_only=True)
-    to_email   = serializers.EmailField(write_only=True)
+    to_email = serializers.EmailField(write_only=True)
     record_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
-        help_text="Список ID записей для шаринга"
+        help_text="Список id записей для шаринга"
     )
 
     class Meta:
-        model  = ShareRequest
-        fields = ['patient_id', 'to_email', 'record_ids']
+        model = ShareRequest
+        fields = ('patient_id', 'to_email', 'record_ids')
 
     def validate(self, attrs):
-        user       = self.context['request'].user
-        patient    = get_object_or_404(Patient, pk=attrs['patient_id'])
-        record_ids = attrs.get('record_ids', [])
+        user = self.context['request'].user
+        patient = get_object_or_404(Patient, pk=attrs['patient_id'])
+        attrs['patient'] = patient
 
-        # проверяем, что все record_ids принадлежат этому patient
-        # и что текущий user — primary или second владелец записи
-        valid_ids = MedicalRecord.objects.filter(
-            Q(owner_primary=user) | Q(owner_second=user),
-            patient=patient,
-            id__in=record_ids
+        # проверяем, что эти записи принадлежат этому пациенту
+        ids = attrs['record_ids']
+        allowed = MedicalRecord.objects.filter(
+            patient=patient
+        ).filter(
+            Q(owner_primary=user) | Q(owner_second=user)
         ).values_list('id', flat=True)
-
-        invalid = set(record_ids) - set(valid_ids)
-        if invalid:
+        bad = set(ids) - set(allowed)
+        if bad:
             raise serializers.ValidationError(
-                f"Нет прав шарить записи с ID {sorted(invalid)}"
+                f"Нельзя расшарить записи с id={list(bad)}"
             )
 
-        attrs['patient'] = patient
         return attrs
 
     def create(self, validated_data):
-        from_user  = self.context['request'].user
-        patient    = validated_data.pop('patient')
-        to_email   = validated_data.pop('to_email')
+        request_user = self.context['request'].user
+        patient = validated_data['patient']
+        to_email = validated_data.pop('to_email')
         record_ids = validated_data.pop('record_ids')
 
-        # получаем пользователя-получателя, если есть
-        to_user = User.objects.filter(email__iexact=to_email).first()
-
-        # создаём запрос на шаринг
-        share_req = ShareRequest.objects.create(
-            from_user=from_user,
-            to_user=to_user,
+        # получаем (или создаём, если нет) ShareRequest
+        share_request, created = ShareRequest.objects.get_or_create(
             to_email=to_email,
             patient=patient,
+            defaults={
+                'from_user': request_user,
+                'to_user': User.objects.filter(email__iexact=to_email).first()
+            }
         )
+        # если уже существовал, обновим поля from_user/to_user на всякий случай
+        if not created:
+            share_request.from_user = request_user
+            share_request.to_user = User.objects.filter(email__iexact=to_email).first()
+            share_request.save(update_fields=['from_user', 'to_user'])
 
-        # создаём или получаем RecordShare для каждой записи
-        shares = []
-        doctor = getattr(from_user, 'doctor_profile', None)
+        # создаём RecordShare для каждой записи
         for rid in record_ids:
-            record = MedicalRecord.objects.get(pk=rid)
-            share, _ = RecordShare.objects.get_or_create(
-                record=record,
-                doctor=doctor
+            rec = MedicalRecord.objects.get(pk=rid)
+            # получатель может и не быть доктором — тогда пропускаем
+            to_user = share_request.to_user
+            doc_profile = getattr(to_user, 'doctor_profile', None)
+            if not doc_profile:
+                continue
+            # get_or_create, чтобы не упасть на unique_together
+            rs, _ = RecordShare.objects.get_or_create(
+                record=rec,
+                doctor=doc_profile,
+                defaults={'status': 'pending'}
             )
-            shares.append(share)
+            share_request.record_shares.add(rs)
 
-        share_req.record_shares.set(shares)
-        return share_req
+        return share_request
 
 
 class ShareRequestSerializer(serializers.ModelSerializer):
-    from_user     = serializers.StringRelatedField()
-    to_user       = serializers.StringRelatedField(read_only=True)
-    patient_name  = serializers.SerializerMethodField()
-    record_shares = RecordShareSerializer(many=True, read_only=True)
+    # для списка входящих мы скрываем to_email, но нам нужны shares
+    from_user_fullname = serializers.CharField(source='from_user.get_full_name', read_only=True)
+    patient_name       = serializers.CharField(source='patient.get_full_name',    read_only=True)
+    shares             = RecordShareSerializer(source='record_shares', many=True, read_only=True)
 
     class Meta:
         model  = ShareRequest
         fields = [
             'id',
-            'from_user',
-            'to_email',
-            'to_user',
-            'patient',
+            'from_user_fullname',
             'patient_name',
-            'status',
             'created_at',
-            'responded_at',
-            'record_shares',
+            'status',
+            'shares',
         ]
 
     def get_patient_name(self, obj):

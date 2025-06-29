@@ -89,7 +89,11 @@ class Admin(models.Model):
 
 # ---------- Мед-запись + файлы ---------------------------------------------
 class MedicalRecord(models.Model):
-    VIS_CHOICES = [('draft', 'Draft'), ('shared', 'Shared')]
+    VIS_CHOICES = [
+        ('draft', 'Draft'),  # только создатель, ещё не расшарено
+        ('shared', 'Shared'),  # запись расшарена — создан RecordShare, но ещё нет owner_second
+        ('confirmed', 'Confirmed'),  # второй владелец принял шаринг → owner_second установлен
+    ]
     visibility   = models.CharField(max_length=10, choices=VIS_CHOICES, default='draft')
 
     patient      = models.ForeignKey(Patient, related_name='medical_records',
@@ -176,37 +180,82 @@ class ArchiveJob(models.Model):
 # ---------- Share / Access control -----------------------------------------
 class RecordShare(models.Model):
     """
-    Конкретная запись расшарена конкретному врачу.
+    Одна конкретная MedicalRecord расшарена конкретному пользователю (врач или пациент).
+    При accept() вторым владельцем записи становится именно этот пользователь.
     """
-    record   = models.ForeignKey(MedicalRecord, on_delete=models.CASCADE,
-                                 related_name='shares')
-    doctor   = models.ForeignKey(Doctor, on_delete=models.CASCADE,
-                                 related_name='record_shares')
+    record   = models.ForeignKey(
+        'MedicalRecord',
+        on_delete=models.CASCADE,
+        related_name='shares'
+    )
+    to_user  = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='incoming_record_shares'
+    )
 
-    STATUS   = [('pending', 'Pending'), ('accepted', 'Accepted'), ('declined', 'Declined')]
+    STATUS   = [
+        ('pending',  'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+    ]
     status   = models.CharField(max_length=8, choices=STATUS, default='pending')
     created  = models.DateTimeField(auto_now_add=True)
     updated  = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('record', 'doctor')
+        unique_together = ('record', 'to_user')
         indexes = [
-            models.Index(fields=('doctor', 'status')),
+            models.Index(fields=('to_user', 'status')),
             models.Index(fields=('record', 'status')),
         ]
 
     def accept(self):
-        if self.status != 'accepted':
-            # при первом «accept» фиксируем второго владельца
+        if self.status == 'accepted':
+            return
+
+        # u1 — тот, кто создал запись (owner_primary)
+        # u2 — пользователь, который принимает шаринг
+        u1 = self.record.owner_primary
+        u2 = self.to_user
+
+        # проверяем, шарится ли между доктором и пациентом
+        is_doc2pat = (u1.role == 'doctor' and u2.role == 'patient')
+        is_pat2doc = (u1.role == 'patient' and u2.role == 'doctor')
+
+        if is_doc2pat or is_pat2doc:
+            # 1) проставляем второго владельца и делаем запись доступной
             if not self.record.owner_second_id:
-                self.record.owner_second = self.doctor.user
-                self.record.visibility   = 'shared'
+                self.record.owner_second = u2
+                self.record.visibility   = 'confirmed'
                 self.record.save(update_fields=['owner_second', 'visibility'])
-            self.status = 'accepted'
-            self.save(update_fields=['status'])
+
+            # 2) синхронизируем m2m doctor.patients
+            doc_user = u1 if is_doc2pat else u2
+            pat_user = u2 if is_doc2pat else u1
+
+            # на всякий случай проверяем, что профили точно существуют
+            doc_profile = getattr(doc_user, 'doctor_profile', None)
+            pat_profile = getattr(pat_user, 'patient_profile', None)
+            if doc_profile and pat_profile:
+                doc_profile.patients.add(pat_profile)
+
+        # В любых остальных случаях (доктор→доктор, пациент→пациент)
+        # мы НЕ трогаем owner_second
+        else:
+            # если шарим в рамках одной роли (доктор→доктор или пациент→пациент),
+            # просто делаем запись доступной ("shared")
+            if self.record.visibility != 'shared':
+                self.record.visibility = 'shared'
+                self.record.save(update_fields=['visibility'])
+
+        # 3) отмечаем сам RecordShare как принятый
+        self.status = 'accepted'
+        self.save(update_fields=['status'])
 
     def decline(self):
-        self.delete()
+        self.status = 'declined'
+        self.save(update_fields=['status'])
 
 
 # ---------- Уведомление ----------------------------------

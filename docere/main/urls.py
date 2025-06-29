@@ -33,4 +33,10 @@ urlpatterns = [
         views.PatientRecordDetailAPIView.as_view(),
         name='patient-record-detail'
     ),
+    # Отдельный эндпоинт для принятия/отклонения RecordShare
+    path(
+      'record-shares/<int:pk>/respond/',
+      views.RecordShareRespondAPIView.as_view(),
+      name='recordshare-respond'
+    ),
 ] + router.urls

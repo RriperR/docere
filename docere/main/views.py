@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 
-from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob, ShareRequest, LabFile
+from .models import User, Patient, Doctor, MedicalRecord, ArchiveJob, ShareRequest, LabFile, RecordShare
 from .serializers import (UserRegisterSerializer, PatientSerializer, DoctorSerializer,
                           UserMeSerializer, MedicalRecordSerializer, ZipUploadSerializer, ArchiveJobSerializer,
                           RecentUploadSerializer, ShareRequestCreateSerializer, ShareRequestSerializer)
@@ -208,7 +208,7 @@ class PatientRecordListCreateAPIView(generics.ListCreateAPIView):
         doctor_profile = getattr(self.request.user, 'doctor_profile', None)
         record = serializer.save(
             patient=patient,
-            created_by=self.request.user,
+            owner_primary=self.request.user,
             doctor=doctor_profile
         )
 
@@ -236,19 +236,32 @@ class PatientRecordDetailAPIView(generics.RetrieveUpdateAPIView):
     ]
 
     def get_queryset(self):
-        # повторяем ту же логику, что и в ListCreate
         user       = self.request.user
         patient_id = self.kwargs['patient_id']
         patient    = get_object_or_404(Patient, pk=patient_id)
 
+        # 1) суперюзер/админ
         if user.is_superuser or user.role == 'admin':
             return MedicalRecord.objects.filter(patient=patient)
-        if user.role == 'doctor':
-            doc = getattr(user, 'doctor_profile', None)
-            if doc and patient in doc.patients.all():
-                return MedicalRecord.objects.filter(patient=patient)
+
+        # 2) пациент — свои записи
         if user.role == 'patient' and patient.user_id == user.id:
             return MedicalRecord.objects.filter(patient=patient)
+
+        # 3) доктор — два случая:
+        if user.role == 'doctor' and hasattr(user, 'doctor_profile'):
+            doc = user.doctor_profile
+            # а) если это «свой» пациент — он может смотреть все
+            if patient in doc.patients.all():
+                return MedicalRecord.objects.filter(patient=patient)
+            # б) если есть шаринг (pending или accepted) — тоже можно посмотреть
+            return MedicalRecord.objects.filter(
+                patient=patient,
+                shares__doctor=doc,
+                shares__status__in=['pending', 'accepted']
+            )
+
+        # иначе — ни посмотреть, ни изменить
         return MedicalRecord.objects.none()
 
     def perform_update(self, serializer):
@@ -341,56 +354,41 @@ class RecentUploadsAPIView(generics.ListAPIView):
 
 class ShareRequestViewSet(viewsets.ModelViewSet):
     """
-    /share-requests/                – список (GET) / создать (POST)
-    /share-requests/{id}/respond/   – принять / отклонить
+    GET  /share-requests/             — список входящих+исходящих шарингов
+    POST /share-requests/             — создать новый ShareRequest
+    POST /share-requests/{id}/respond/ — принять/отклонить весь пакет шаринга
     """
     permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
 
-    # ─── queryset / фильтр ──────────────────────────────────────────────────
     def get_queryset(self):
         user = self.request.user
+        # и входящие, и исходящие
+        return ShareRequest.objects.filter(
+            Q(from_user=user) | Q(to_user=user)
+        ).order_by('-created_at')
 
-        # доктор → исходящие, пациент → входящие
-        base_qs = (
-            ShareRequest.objects.filter(from_user=user)
-            if user.role == 'doctor' else
-            ShareRequest.objects.filter(to_user=user)
-        )
-
-        # необязательный фильтр ?patient_id=…
-        pid = self.request.query_params.get('patient_id')
-        if pid:
-            base_qs = base_qs.filter(patient_id=pid)
-
-        return base_qs.order_by('-created_at')
-
-    # ─── сериализаторы ─────────────────────────────────────────────────────
     def get_serializer_class(self):
         if self.action == 'create':
             return ShareRequestCreateSerializer
         return ShareRequestSerializer
 
-    # ─── create (POST /share-requests/) ────────────────────────────────────
-    def create(self, request, *args, **kwargs):
-        ser = self.get_serializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        share = ser.save()                                   # внутри create-serializer
-        return Response(
-            ShareRequestSerializer(share, context={'request': request}).data,
-            status=status.HTTP_201_CREATED
-        )
+    def perform_create(self, serializer):
+        # from_user проставим автоматически
+        serializer.save(from_user=self.request.user)
 
-    # ─── respond (POST /share-requests/{id}/respond/) ──────────────────────
     @action(detail=True, methods=['post'])
     def respond(self, request, pk=None):
+        """
+        Принять/отклонить весь ShareRequest.
+        Ожидает в body JSON { "accepted": true|false }
+        """
         share = get_object_or_404(ShareRequest, pk=pk)
-
-        # только адресат может ответить
+        # только адресат может отвечать
         if share.to_user != request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        # accepted=true/false
-        if bool(request.data.get('accepted')):
+        if bool(request.data.get('accepted', False)):
             share.accept()
         else:
             share.decline()
@@ -398,3 +396,27 @@ class ShareRequestViewSet(viewsets.ModelViewSet):
         return Response(
             ShareRequestSerializer(share, context={'request': request}).data
         )
+
+class RecordShareRespondAPIView(APIView):
+    """
+    POST /record-shares/{pk}/respond/
+    body: { "action": "accept"|"decline" }
+    Принимать/отклонять можно только тот, кому шарилась конкретная запись (to_user).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        rs = get_object_or_404(RecordShare, pk=pk)
+        user = request.user
+
+        # только адресат
+        if rs.to_user != user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        action = request.data.get('action')
+        if action == 'accept':
+            rs.accept()
+        else:
+            rs.decline()
+
+        return Response({'status': action}, status=status.HTTP_200_OK)

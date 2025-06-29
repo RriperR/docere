@@ -1,73 +1,83 @@
+// src/stores/shareRequestsStore.ts
 import { create } from 'zustand'
 import api from '../api/api'
 
-export type ShareRequest = {
+export interface SharedRecord {
   id: number
-  from_user: {
-    id: number
-    full_name: string
-  }
-  to_user: {
-    id: number
-    full_name: string
-  }
-  patient: {
-    id: number
-    first_name: string
-    last_name: string
-  }
+  record_id: number
+  visit_date: string | null
+  notes: string
+  status: 'pending' | 'accepted' | 'declined'
+  created: string
+  updated: string
+}
+
+export interface ShareRequest {
+  id: number
+  from_user_fullname: string
+  to_email: string
+  to_user: number | null
+  patient: number
+  patient_name: string
   status: 'pending' | 'accepted' | 'declined'
   created_at: string
+  responded_at: string | null
+  shares: SharedRecord[]
 }
 
 interface ShareRequestsState {
   requests: ShareRequest[]
-  loading: boolean
+  isLoading: boolean
   error: string | null
 
-  fetchMyRequests: () => Promise<void>
-  createRequest: (toUserId: number, patientId: number) => Promise<void>
-  respondRequest: (id: number, accepted: boolean) => Promise<void>
+  fetchAll: () => Promise<void>
+  respond: (
+    shareRequestId: number,
+    recordShareId: number,
+    action: 'accept' | 'decline'
+  ) => Promise<void>
 }
 
-export const useShareRequestsStore = create<ShareRequestsState>((set, get) => ({
+export const useShareRequestsStore = create<ShareRequestsState>((set) => ({
   requests: [],
-  loading: false,
+  isLoading: false,
   error: null,
 
-  fetchMyRequests: async () => {
-    set({ loading: true, error: null })
+  fetchAll: async () => {
+    set({ isLoading: true, error: null })
     try {
       const { data } = await api.get<ShareRequest[]>('/share-requests/')
-      set({ requests: data })
+      set({ requests: data, isLoading: false })
     } catch (e: any) {
-      set({ error: e.message || 'Failed to load requests' })
-    } finally {
-      set({ loading: false })
+      set({
+        error: e.response?.data?.detail || e.message || 'Не удалось загрузить шаринги',
+        isLoading: false
+      })
     }
   },
 
-  createRequest: async (toUserId, patientId) => {
-    set({ loading: true, error: null })
+  respond: async (shareRequestId, recordShareId, action) => {
+    set({ isLoading: true, error: null })
     try {
-      await api.post('/share-requests/', { to_user: toUserId, patient: patientId })
-      await get().fetchMyRequests()
+      await api.post(`/record-shares/${recordShareId}/respond/`, { action })
+      // обновим локальный стор: изменим статус конкретного SharedRecord
+      set(state => ({
+        requests: state.requests.map(req => {
+          if (req.id !== shareRequestId) return req
+          return {
+            ...req,
+            shares: req.shares.map(s =>
+              s.id === recordShareId ? { ...s, status: action === 'accept' ? 'accepted' : 'declined' } : s
+            )
+          }
+        })
+      }))
     } catch (e: any) {
-      set({ error: e.message || 'Failed to send request' })
+      set({
+        error: e.response?.data?.detail || e.message || 'Не удалось ответить на шаринг'
+      })
     } finally {
-      set({ loading: false })
-    }
-  },
-
-  respondRequest: async (id, accepted) => {
-    set({ loading: true, error: null })
-    try {
-      await api.post(`/share-requests/${id}/respond/`, { accepted })
-      await get().fetchMyRequests()
-    } catch (e: any) {
-      set({ error: e.message || 'Failed to respond' })
-    } finally {
-      set({ loading: false })
+      set({ isLoading: false })
     }
   },
 }))

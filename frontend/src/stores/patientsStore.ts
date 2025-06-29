@@ -54,11 +54,8 @@ interface PatientsState {
   fetchPatientById: (id: string) => Promise<void>
   fetchPatientRecords: (id: string) => Promise<void>
   createPatientRecord: (patientId: string, form: FormData) => Promise<void>
-  updatePatientRecord: (
-    patientId: string,
-    recordId: string,
-    form: FormData
-  ) => Promise<void>
+  updatePatientRecord: (patientId: string, recordId: string, form: FormData) => Promise<void>
+  shareRecords: (patientId: string, toEmail: string, recordIds: string[]) => Promise<void>
   searchPatients: (query: string) => void
   filterPatientsByDate: (startDate?: string, endDate?: string) => void
 }
@@ -76,7 +73,7 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     try {
       const { data } = await api.get<any[]>('/patients/')
       const patients: Patient[] = data.map(p => ({
-        id: p.id,
+        id: String(p.id),
         firstName: p.first_name,
         lastName: p.last_name,
         middleName: p.middle_name ?? undefined,
@@ -101,7 +98,7 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     try {
       const { data: p } = await api.get<any>(`/patients/${id}/`)
       const patient: Patient = {
-        id: p.id,
+        id: String(p.id),
         firstName: p.first_name,
         lastName: p.last_name,
         middleName: p.middle_name ?? undefined,
@@ -126,7 +123,7 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
     try {
       const { data } = await api.get<any[]>(`/patients/${patientId}/records/`)
       const recs: PatientRecord[] = data.map(r => ({
-        id: r.id,
+        id: String(r.id),
         visit_date: r.visit_date,
         created_at: r.created_at,
         appointment_location: r.appointment_location,
@@ -147,7 +144,6 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
   createPatientRecord: async (patientId, form) => {
     set({ isLoading: true, error: null })
     try {
-      // multipart/form-data
       const { data: rec } = await api.post<any>(
         `/patients/${patientId}/records/`,
         form,
@@ -156,7 +152,10 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
       set(state => ({
         patientRecords: [rec, ...state.patientRecords],
         currentPatient: state.currentPatient
-          ? { ...state.currentPatient, lastVisit: rec.visit_date ?? state.currentPatient.lastVisit }
+          ? {
+              ...state.currentPatient,
+              lastVisit: rec.visit_date ?? state.currentPatient.lastVisit,
+            }
           : state.currentPatient,
       }))
     } catch (e: any) {
@@ -174,14 +173,30 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
         form,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       )
-      // обновляем в списке
       set(state => ({
         patientRecords: state.patientRecords.map(r =>
-          r.id === rec.id ? rec : r
+          r.id === String(rec.id) ? rec : r
         ),
       }))
     } catch (e: any) {
       set({ error: e.response?.data || 'Failed to update record' })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  // Новый экшен: шарим несколько записей за раз
+  shareRecords: async (patientId, toEmail, recordIds) => {
+    set({ isLoading: true, error: null })
+    try {
+      await api.post('/share-requests/', {
+        patient_id: Number(patientId),
+        to_email: toEmail,
+        record_ids: recordIds,
+      })
+    } catch (e: any) {
+      set({ error: e.response?.data || 'Failed to share records' })
+      throw e
     } finally {
       set({ isLoading: false })
     }

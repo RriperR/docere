@@ -1,28 +1,28 @@
+// src/App.tsx
 import { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { LoadingScreen } from './components/common/LoadingScreen';
-import { AuthLayout } from './components/layouts/AuthLayout';
-import { DashboardLayout } from './components/layouts/DashboardLayout';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { RoleRoute } from './components/auth/RoleRoute';
-import { useAuthStore } from './stores/authStore';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { LoadingScreen }      from './components/common/LoadingScreen';
+import { AuthLayout }         from './components/layouts/AuthLayout';
+import { DashboardLayout }    from './components/layouts/DashboardLayout';
+import { ProtectedRoute }     from './components/auth/ProtectedRoute';
+import { RoleRoute }          from './components/auth/RoleRoute';
+import { useAuthStore }       from './stores/authStore';
 
-// Lazy loaded pages
-const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
-const DoctorDashboard = lazy(() => import('./pages/dashboard/DoctorDashboard'));
-const PatientDashboard = lazy(() => import('./pages/dashboard/PatientDashboard'));
-const AdminDashboard = lazy(() => import('./pages/dashboard/AdminDashboard'));
-const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
-const UploadStatusPage = lazy(() => import('./pages/upload/UploadStatusPage'));
-const PatientListPage = lazy(() => import('./pages/patients/PatientListPage'));
+const LoginPage          = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage       = lazy(() => import('./pages/auth/RegisterPage'));
+const DoctorDashboard    = lazy(() => import('./pages/dashboard/DoctorDashboard'));
+const PatientDashboard   = lazy(() => import('./pages/dashboard/PatientDashboard'));
+const AdminDashboard     = lazy(() => import('./pages/dashboard/AdminDashboard'));
+const UploadPage         = lazy(() => import('./pages/upload/UploadPage'));
+const UploadStatusPage   = lazy(() => import('./pages/upload/UploadStatusPage'));
+const PatientListPage    = lazy(() => import('./pages/patients/PatientListPage'));
 const PatientDetailsPage = lazy(() => import('./pages/patients/PatientDetailsPage'));
-const DoctorRequestPage = lazy(() => import('./pages/roles/DoctorRequestPage'));
-const AdminPanelPage = lazy(() => import('./pages/admin/AdminPanelPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const AccountSettingsPage = lazy(() => import('./pages/settings/AccountSettingsPage'));
+const DoctorRequestPage  = lazy(() => import('./pages/roles/DoctorRequestPage'));
+const AdminPanelPage     = lazy(() => import('./pages/admin/AdminPanelPage'));
+const AccountSettings    = lazy(() => import('./pages/settings/AccountSettingsPage'));
 const ReviewRequestsPage = lazy(() => import('./pages/roles/ReviewRequestsPage'));
-const ShareRequestsPage = lazy(() => import('./pages/ShareRequestsPage.tsx'));
+const NotFoundPage       = lazy(() => import('./pages/NotFoundPage'));
+import { ShareRequestsPage } from './pages/shares/ShareRequestsPage';
 
 function App() {
   const { isAuthenticated, user } = useAuthStore();
@@ -30,146 +30,55 @@ function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
-        {/* Public routes */}
+        {/* 1) публичные */}
         <Route element={<AuthLayout />}>
-          <Route path="/auth/login" element={<LoginPage />} />
+          <Route path="/auth/login"    element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
         </Route>
 
-        {/* Protected routes */}
+        {/* 2) все остальное только для залогиненных */}
         <Route element={<ProtectedRoute />}>
+          {/* 2.1) общий layout с меню + header */}
           <Route element={<DashboardLayout />}>
-            {/* Role-specific dashboards */}
-            <Route 
-              path="/dashboard" 
+            {/* дашборды по ролям */}
+            <Route path="/dashboard"
               element={
-                isAuthenticated ? (
-                  user?.role === 'doctor' ? (
-                    <Navigate to="/dashboard/doctor\" replace />
-                  ) : user?.role === 'admin' ? (
-                    <Navigate to="/dashboard/admin" replace />
-                  ) : (
-                    <Navigate to="/dashboard/patient" replace />
-                  )
-                ) : (
-                  <Navigate to="/auth/login" replace />
-                )
-              } 
+                user?.role === 'doctor'
+                  ? <Navigate to="/dashboard/doctor" replace/>
+                  : user?.role === 'patient'
+                    ? <Navigate to="/dashboard/patient" replace/>
+                    : <Navigate to="/dashboard/admin"   replace/>
+              }
             />
-            
-            <Route 
-              path="/dashboard/doctor" 
-              element={
-                <RoleRoute allowedRoles={['doctor']}>
-                  <DoctorDashboard />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/dashboard/patient" 
-              element={
-                <RoleRoute allowedRoles={['patient']}>
-                  <PatientDashboard />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/dashboard/admin" 
-              element={
-                <RoleRoute allowedRoles={['admin']}>
-                  <AdminDashboard />
-                </RoleRoute>
-              } 
-            />
+            <Route path="/dashboard/doctor"  element={<RoleRoute allowedRoles={['doctor']}><DoctorDashboard/></RoleRoute>} />
+            <Route path="/dashboard/patient" element={<RoleRoute allowedRoles={['patient']}><PatientDashboard/></RoleRoute>} />
+            <Route path="/dashboard/admin"   element={<RoleRoute allowedRoles={['admin']}><AdminDashboard/></RoleRoute>} />
 
-            {/* Common protected routes */}
-            <Route 
-              path="/upload" 
-              element={
-                <RoleRoute allowedRoles={['doctor', 'admin', 'patient']}>
-                  <UploadPage />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/upload/status/:jobId" 
-              element={
-                <RoleRoute allowedRoles={['doctor', 'admin', 'patient']}>
-                  <UploadStatusPage />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/patients" 
-              element={
-                <RoleRoute allowedRoles={['doctor', 'admin', 'patient']}>
-                  <PatientListPage />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/patients/:id" 
-              element={
-                <RoleRoute allowedRoles={['doctor', 'admin', 'patient']}>
-                  <PatientDetailsPage />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/roles/request" 
-              element={
-                <RoleRoute allowedRoles={['patient']}>
-                  <DoctorRequestPage />
-                </RoleRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin" 
-              element={
-                <RoleRoute allowedRoles={['admin']}>
-                  <AdminPanelPage />
-                </RoleRoute>
-              } 
-            />
+            {/* общий функционал */}
+            <Route path="/upload"           element={<RoleRoute allowedRoles={['doctor','admin','patient']}><UploadPage/></RoleRoute>} />
+            <Route path="/upload/status/:jobId" element={<UploadStatusPage/>} />
 
-            <Route 
-              path="/settings" 
-              element={<AccountSettingsPage />} 
-            />
-            <Route 
-              path="/roles/review" 
-              element={
-                <RoleRoute allowedRoles={['doctor']}>
-                  <ReviewRequestsPage />
-                </RoleRoute>
-              } 
-            />
+            <Route path="/patients"         element={<PatientListPage/>} />
+            <Route path="/patients/:id"     element={<PatientDetailsPage/>} />
+
+            <Route path="/roles/request"    element={<RoleRoute allowedRoles={['patient']}><DoctorRequestPage/></RoleRoute>} />
+            <Route path="/roles/review"     element={<RoleRoute allowedRoles={['doctor']}><ReviewRequestsPage/></RoleRoute>} />
+            <Route path="/admin"            element={<RoleRoute allowedRoles={['admin']}><AdminPanelPage/></RoleRoute>} />
+            <Route path="/settings"         element={<AccountSettings />} />
+
+            <Route path="/share-requests"  element={<ShareRequestsPage/>} />
           </Route>
         </Route>
 
-        {/* Redirect from root to dashboard or login */}
-        <Route 
-          path="/" 
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard\" replace />
-            ) : (
-              <Navigate to="/auth/login" replace />
-            )
-          } 
-        />
+        {/* корень --> дашбоард или логин */}
+        <Route path="/" element={
+          isAuthenticated
+            ? <Navigate to="/dashboard" replace/>
+            : <Navigate to="/auth/login" replace/>
+        }/>
 
-        <Route path="/share-requests" element={<ShareRequestsPage />} />
-
-        {/* 404 page */}
-        <Route path="*" element={<NotFoundPage />} />
+        {/* 404 */}
+        <Route path="*" element={<NotFoundPage/>}/>
       </Routes>
     </Suspense>
   );
