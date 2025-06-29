@@ -1,9 +1,11 @@
 import os
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
+
 from rest_framework import serializers
 
-from main.models import Patient, User, Doctor, LabFile, MedicalRecord, ArchiveJob, ShareRequest
+from main.models import Patient, User, Doctor, LabFile, MedicalRecord, ArchiveJob, ShareRequest, RecordShare
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -58,6 +60,9 @@ class PatientSerializer(serializers.ModelSerializer):
     last_visit    = serializers.SerializerMethodField()
     record_count  = serializers.SerializerMethodField()
     photo_url     = serializers.ImageField(source='photo', read_only=True)
+    birthday = serializers.DateField(
+        required=False, allow_null=True, input_formats=['%Y-%m-%d']
+    )
 
     class Meta:
         model  = Patient
@@ -80,6 +85,25 @@ class PatientSerializer(serializers.ModelSerializer):
     def get_last_visit(self, obj):
         last = obj.medical_records.order_by('-visit_date').first()
         return last.visit_date if last and last.visit_date else None
+
+    def validate_birthday(self, value):
+        """Позволяем прислать пустую строку → None."""
+        if value in ('', None):
+            return None
+        return value
+
+    def create(self, validated_data):
+        """
+        DRF по-умолчанию вернёт dict, если мы переопределяем поля.
+        Возвращаем именно объект Patient.
+        """
+        return Patient.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        for field, val in validated_data.items():
+            setattr(instance, field, val)
+        instance.save()
+        return instance
 
 
 class DoctorSerializer(serializers.ModelSerializer):
@@ -186,55 +210,102 @@ class RecentUploadSerializer(serializers.ModelSerializer):
         return os.path.basename(obj.archive_file.name or '')
 
 
+class RecordShareSerializer(serializers.ModelSerializer):
+    record_id = serializers.IntegerField(source='record.id', read_only=True)
+    doctor_id = serializers.IntegerField(source='doctor.id', read_only=True)
+    status    = serializers.CharField(read_only=True)
+
+    class Meta:
+        model  = RecordShare
+        fields = ['id', 'record_id', 'doctor_id', 'status', 'created', 'updated']
+
+
 class ShareRequestCreateSerializer(serializers.ModelSerializer):
     patient_id = serializers.IntegerField(write_only=True)
     to_email   = serializers.EmailField(write_only=True)
+    record_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        help_text="Список ID записей для шаринга"
+    )
 
     class Meta:
-        model = ShareRequest
-        fields = ['patient_id', 'to_email']
+        model  = ShareRequest
+        fields = ['patient_id', 'to_email', 'record_ids']
 
     def validate(self, attrs):
-        user = self.context['request'].user
+        user       = self.context['request'].user
+        patient    = get_object_or_404(Patient, pk=attrs['patient_id'])
+        record_ids = attrs.get('record_ids', [])
 
-        # 1) загрузим Patient по ID и проверим, что этот врач с ним связан
-        patient = get_object_or_404(Patient, pk=attrs['patient_id'])
-        if not patient.doctors.filter(user=user).exists():
-            raise serializers.ValidationError("You're not assigned to this patient")
+        # проверяем, что все record_ids принадлежат этому patient
+        # и что текущий user — primary или second владелец записи
+        valid_ids = MedicalRecord.objects.filter(
+            Q(owner_primary=user) | Q(owner_second=user),
+            patient=patient,
+            id__in=record_ids
+        ).values_list('id', flat=True)
 
-        # 2) сохраним Patient для use в create()
+        invalid = set(record_ids) - set(valid_ids)
+        if invalid:
+            raise serializers.ValidationError(
+                f"Нет прав шарить записи с ID {sorted(invalid)}"
+            )
+
         attrs['patient'] = patient
         return attrs
 
     def create(self, validated_data):
-        patient   = validated_data.pop('patient')
-        to_email  = validated_data.pop('to_email')
-        from_user = self.context['request'].user
+        from_user  = self.context['request'].user
+        patient    = validated_data.pop('patient')
+        to_email   = validated_data.pop('to_email')
+        record_ids = validated_data.pop('record_ids')
 
-        # найдём пользователя, которому шлём запрос, если уже зарегистрирован
+        # получаем пользователя-получателя, если есть
         to_user = User.objects.filter(email__iexact=to_email).first()
 
-        return ShareRequest.objects.create(
+        # создаём запрос на шаринг
+        share_req = ShareRequest.objects.create(
             from_user=from_user,
             to_user=to_user,
             to_email=to_email,
             patient=patient,
-            status=ShareRequest.STATUS_PENDING,
         )
+
+        # создаём или получаем RecordShare для каждой записи
+        shares = []
+        doctor = getattr(from_user, 'doctor_profile', None)
+        for rid in record_ids:
+            record = MedicalRecord.objects.get(pk=rid)
+            share, _ = RecordShare.objects.get_or_create(
+                record=record,
+                doctor=doctor
+            )
+            shares.append(share)
+
+        share_req.record_shares.set(shares)
+        return share_req
 
 
 class ShareRequestSerializer(serializers.ModelSerializer):
-    from_user = serializers.StringRelatedField()
-    to_email = serializers.EmailField(read_only=True)
-    to_user  = serializers.StringRelatedField(read_only=True)
-    patient  = serializers.PrimaryKeyRelatedField(read_only=True)
-    patient_name = serializers.SerializerMethodField()
+    from_user     = serializers.StringRelatedField()
+    to_user       = serializers.StringRelatedField(read_only=True)
+    patient_name  = serializers.SerializerMethodField()
+    record_shares = RecordShareSerializer(many=True, read_only=True)
 
     class Meta:
         model  = ShareRequest
         fields = [
-            'id', 'from_user', 'to_email', 'to_user', 'patient', 'patient_name',
-            'status', 'created_at', 'responded_at'
+            'id',
+            'from_user',
+            'to_email',
+            'to_user',
+            'patient',
+            'patient_name',
+            'status',
+            'created_at',
+            'responded_at',
+            'record_shares',
         ]
 
     def get_patient_name(self, obj):

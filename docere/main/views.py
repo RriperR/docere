@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 
 from rest_framework import generics, status, viewsets, parsers
@@ -15,8 +16,30 @@ from main.tasks import process_zip_task
 
 class CreateUserView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
-    queryset = User.objects.all()
-    serializer_class = UserRegisterSerializer
+    queryset           = User.objects.all()
+    serializer_class   = UserRegisterSerializer
+
+    def perform_create(self, serializer):
+        """
+        • Создаём самого `User`
+        • Если роль == patient  → сразу же создаём Patient-профиль и привязываем
+        """
+        user: User = serializer.save()
+
+        if user.role == 'patient':
+            # если вдруг перерегистрируются тем же email – карточка уже есть
+            Patient.objects.get_or_create(
+                user=user,
+                defaults={
+                    'first_name':  user.first_name,
+                    'last_name':   user.last_name,
+                    'middle_name': user.middle_name,
+                    'birthday':    user.birthday,
+                    'email':       user.email,
+                    'phone':       user.phone,
+                }
+            )
+
 
 
 class UserMeView(APIView):
@@ -36,38 +59,81 @@ class UserMeView(APIView):
 
 
 class PatientListCreate(generics.ListCreateAPIView):
+    """
+    GET  /patients/        – список пациентов, доступных текущему юзеру
+    POST /patients/        – создать карточку пациента
+    """
     serializer_class = PatientSerializer
+    permission_classes = [IsAuthenticated]
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # С П И С О К
+    # ─────────────────────────────────────────────────────────────────────────
     def get_queryset(self):
         user = self.request.user
+
+        # аноним – пусто
         if not user.is_authenticated:
             return Patient.objects.none()
+
+        # пациент → только своя карточка
         if user.role == 'patient':
             return Patient.objects.filter(user=user)
-        if user.is_superuser or user.role == "admin":
-            return Patient.objects.all()
-        # доктор
-        return Patient.objects.filter(doctors=user.doctor_profile)
 
+        # админ / суперюзер → все
+        if user.is_superuser or user.role == 'admin':
+            return Patient.objects.all()
+
+        # доктор → свои привязанные
+        if user.role == 'doctor' and hasattr(user, 'doctor_profile'):
+            return user.doctor_profile.patients.all()
+
+        # остальным – пусто
+        return Patient.objects.none()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # С О З Д А Н И Е
+    # ─────────────────────────────────────────────────────────────────────────
     def perform_create(self, serializer):
+        """
+        • Доктор  – создаёт «чернового» пациента и автоматически
+          привязывает к себе (doctor.patients.add()).
+        • Пациент – нельзя
+        • Админ    – может создать карточку кому угодно, просто сохраняем.
+        • Прочие   – 403.
+        """
         user = self.request.user
 
-        # админ и доктор
-        if user.is_superuser or user.role in ("admin", "doctor"):
+        # 1) если birthday пришёл пустой строкой – превращаем в None
+        data = serializer.validated_data
+        if data.get('birthday') in ('', None):
+            data['birthday'] = None
+
+        # 2) ветки по ролям ---------------------------------------------------
+        # админ или суперюзер
+        if user.is_superuser or user.role == 'admin':
+            serializer.save()
+            return
+
+        # доктор
+        if user.role == 'doctor':
             patient = serializer.save()
-            if user.role == "doctor":
-                # автоматически прикрепляем пациента к доктору
-                doctor, _ = Doctor.objects.get_or_create(user=user)
-                patient.doctors.add(doctor)
+            doctor, _ = Doctor.objects.get_or_create(user=user)
+            patient.doctors.add(doctor)
             return
 
-        # пациент — создаём карточку, привязывая её к себе
-        if user.role == "patient":
-            serializer.save(user=user)
-            return
+        # пациент
+        if user.role == 'patient':
+            raise Response(
+                {"detail": "У вас уже есть личная карточка пациента."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        # все остальные — ошибка
-        return Response({"error": "У вас нет прав на добавление пациентов"}, status=403)
+        # остальные
+        raise Response(
+            {"error": "У вас нет прав на добавление пациентов"},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
 
 class PatientRetrieveAPIView(generics.RetrieveAPIView):
@@ -128,7 +194,10 @@ class PatientRecordListCreateAPIView(generics.ListCreateAPIView):
         # пациент — только свои записи
         if user.role == 'patient':
             if patient.user_id == user.id:
-                return MedicalRecord.objects.filter(patient=patient)
+                return MedicalRecord.objects.filter(
+                    Q(owner_primary=user) | Q(owner_second=user),
+                    patient=patient,
+                )
 
         # иначе — пусто
         return MedicalRecord.objects.none()
@@ -270,51 +339,62 @@ class RecentUploadsAPIView(generics.ListAPIView):
         ).order_by('-uploaded_at')[:10]
 
 
-
 class ShareRequestViewSet(viewsets.ModelViewSet):
+    """
+    /share-requests/                – список (GET) / создать (POST)
+    /share-requests/{id}/respond/   – принять / отклонить
+    """
     permission_classes = [IsAuthenticated]
 
+    # ─── queryset / фильтр ──────────────────────────────────────────────────
     def get_queryset(self):
         user = self.request.user
-        if user.role == 'doctor':
-            qs = ShareRequest.objects.filter(from_user=user)
-        else:
-            qs = ShareRequest.objects.filter(to_user=user)
 
-        patient_id = self.request.query_params.get('patient_id')
-        if patient_id is not None:
-            qs = qs.filter(patient_id=patient_id)
-        # пациенты — входящие
-        return qs
+        # доктор → исходящие, пациент → входящие
+        base_qs = (
+            ShareRequest.objects.filter(from_user=user)
+            if user.role == 'doctor' else
+            ShareRequest.objects.filter(to_user=user)
+        )
 
+        # необязательный фильтр ?patient_id=…
+        pid = self.request.query_params.get('patient_id')
+        if pid:
+            base_qs = base_qs.filter(patient_id=pid)
+
+        return base_qs.order_by('-created_at')
+
+    # ─── сериализаторы ─────────────────────────────────────────────────────
     def get_serializer_class(self):
         if self.action == 'create':
             return ShareRequestCreateSerializer
         return ShareRequestSerializer
 
+    # ─── create (POST /share-requests/) ────────────────────────────────────
     def create(self, request, *args, **kwargs):
-        # 1) валидируем входящие patient_id и to_email
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        share = ser.save()                                   # внутри create-serializer
+        return Response(
+            ShareRequestSerializer(share, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
+        )
 
-        # 2) сохраняем (внутри create() create-сериализатора проставится from_user и найдётся to_user по email)
-        share = serializer.save()
-
-        # 3) отдаем «полный» сериализатор в ответ
-        output = ShareRequestSerializer(share, context={'request': request})
-        return Response(output.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    # ─── respond (POST /share-requests/{id}/respond/) ──────────────────────
+    @action(detail=True, methods=['post'])
     def respond(self, request, pk=None):
         share = get_object_or_404(ShareRequest, pk=pk)
 
-        # только тот, кому адресовали, может отвечать
+        # только адресат может ответить
         if share.to_user != request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
+        # accepted=true/false
         if bool(request.data.get('accepted')):
             share.accept()
         else:
             share.decline()
 
-        return Response(self.get_serializer(share).data)
+        return Response(
+            ShareRequestSerializer(share, context={'request': request}).data
+        )
