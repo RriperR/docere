@@ -173,33 +173,29 @@ class PatientRecordListCreateAPIView(generics.ListCreateAPIView):
     GET  /patients/{patient_id}/records/  — список записей
     POST /patients/{patient_id}/records/  — создать новую запись
     """
-    serializer_class   = MedicalRecordSerializer
+    serializer_class = MedicalRecordSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user       = self.request.user
-        patient_id = self.kwargs['patient_id']
-        patient    = get_object_or_404(Patient, pk=patient_id)
+        user = self.request.user
+        patient = get_object_or_404(Patient, pk=self.kwargs['patient_id'])
 
-        # суперюзер или админ
+        # админы/суперюзеры видят всё
         if user.is_superuser or user.role == 'admin':
             return MedicalRecord.objects.filter(patient=patient)
 
-        # доктор — только своих пациентов
-        if user.role == 'doctor':
-            doc = getattr(user, 'doctor_profile', None)
-            if doc and patient in doc.patients.all():
-                return MedicalRecord.objects.filter(patient=patient)
+        base = MedicalRecord.objects.filter(patient=patient)
 
-        # пациент — только свои записи
-        if user.role == 'patient':
-            if patient.user_id == user.id:
-                return MedicalRecord.objects.filter(
-                    Q(owner_primary=user) | Q(owner_second=user),
-                    patient=patient,
-                )
+        # для доктора и пациента одинаковая логика просмотра:
+        # — создатель, или второй владелец, или принявший шаринг
+        if user.role in ('doctor', 'patient'):
+            return base.filter(
+                Q(owner_primary=user)
+                | Q(owner_second=user)
+                | Q(shares__to_user=user, shares__status='accepted')
+            ).distinct()
 
-        # иначе — пусто
+        # остальным — ничего
         return MedicalRecord.objects.none()
 
     def perform_create(self, serializer):
@@ -359,7 +355,6 @@ class ShareRequestViewSet(viewsets.ModelViewSet):
     POST /share-requests/{id}/respond/ — принять/отклонить весь пакет шаринга
     """
     permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
 
     def get_queryset(self):
         user = self.request.user
@@ -373,9 +368,14 @@ class ShareRequestViewSet(viewsets.ModelViewSet):
             return ShareRequestCreateSerializer
         return ShareRequestSerializer
 
-    def perform_create(self, serializer):
-        # from_user проставим автоматически
-        serializer.save(from_user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        share = ser.save()
+        return Response(
+            ShareRequestSerializer(share, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
+        )
 
     @action(detail=True, methods=['post'])
     def respond(self, request, pk=None):

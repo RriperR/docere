@@ -278,13 +278,12 @@ class ShareRequestCreateSerializer(serializers.ModelSerializer):
             rec = MedicalRecord.objects.get(pk=rid)
             # получатель может и не быть доктором — тогда пропускаем
             to_user = share_request.to_user
-            doc_profile = getattr(to_user, 'doctor_profile', None)
-            if not doc_profile:
+            if not to_user:
                 continue
             # get_or_create, чтобы не упасть на unique_together
             rs, _ = RecordShare.objects.get_or_create(
                 record=rec,
-                doctor=doc_profile,
+                to_user=to_user,
                 defaults={'status': 'pending'}
             )
             share_request.record_shares.add(rs)
