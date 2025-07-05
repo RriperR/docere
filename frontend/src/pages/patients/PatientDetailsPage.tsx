@@ -11,7 +11,7 @@ import { Card } from '../../components/common/Card'
 import { Button } from '../../components/common/Button'
 import { Tabs } from '../../components/common/Tabs'
 import { AddRecordModal } from '../../components/AddRecordModal'
-import { ShareCard } from '../../components/ShareCard'
+
 import {
   usePatientsStore,
   PatientRecord,
@@ -102,7 +102,6 @@ export default function PatientDetailsPage() {
             <Button variant="primary" onClick={() => setShowAddModal(true)}>
               Add Record
             </Button>
-            <ShareCard patientId={Number(currentPatient.id)} />
           </div>
         </div>
       </motion.div>
