@@ -9,51 +9,6 @@ server {
     error_log /var/log/nginx/error.log warn;
     access_log /var/log/nginx/access.log main;
 
-
-    # Маршрут для проверки Let's Encrypt
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    # Перенаправление всех HTTP-запросов на HTTPS
-    location / {
-        return 307 https://$host$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name docere.online www.docere.online;
-
-    client_max_body_size 100M;
-
-    error_log /var/log/nginx/error.log warn;
-    access_log /var/log/nginx/access.log main;
-
-    # Настройки SSL
-    ssl_certificate /etc/letsencrypt/live/docere.online/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/docere.online/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384';
-
-
-    # Блокировка доступа к известным вредоносным путям
-    location ~* /(test|tests|testing|api|demo|cms|crm|admin|backup|blog|workspace|drupal|panel|public|apps|app)/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php {
-        return 444;
-    }
-
-    location ~* /index\.php {
-        return 444;
-    }
-
-    location ~* /GponForm/diag_Form? {
-        return 444;
-    }
-
-    location ~* /boaform/admin/formLogin? {
-        return 444;
-    }
-
     # Проксирование запросов к uWSGI
     location /api/ {
         client_max_body_size 100M;
