@@ -37,8 +37,6 @@ services:
       - media_volume:/code/docere/media
       - .:/code/
 
-    ports:
-      - "8000:8000"
 
 
   frontend:
@@ -76,6 +74,8 @@ services:
 
   worker: # надо пересобирать при изменениях в коде для celery
     hostname: worker
+    build:
+      context: .
     environment:
       - DJANGO_SETTINGS_MODULE=docere.prod
       - PYTHONPATH=/code/docere
@@ -99,3 +99,8 @@ volumes:
   static_volume:
   media_volume:
   react_build:
+
+networks:
+  default:
+    name: docere_net
+    external: true

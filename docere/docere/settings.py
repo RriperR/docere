@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_extensions',
 
-    'main',
+    'main.apps.MainConfig',
     'django.contrib.postgres',
     'rest_framework',
     'drf_spectacular',
@@ -170,3 +170,7 @@ SPECTACULAR_SETTINGS['SECURITY_SCHEMES'] = {
         'bearerFormat': 'JWT',
     },
 }
+
+EVENTHUB_ENABLED = os.getenv("EVENTHUB_ENABLED", "1") == "1"
+EVENTHUB_GRPC_ADDR = os.getenv("EVENTHUB_GRPC_ADDR", "event-hub:50051")
+EVENTHUB_TIMEOUT_SEC = float(os.getenv("EVENTHUB_TIMEOUT_SEC", "5.0"))

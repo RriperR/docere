@@ -33,3 +33,6 @@ redis==5.2.1
 flower
 drf-spectacular
 python-decouple
+grpcio
+grpcio-tools
+protobuf

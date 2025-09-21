@@ -1,41 +1,81 @@
-# Настройка для uWSGI
+# ===== uWSGI upstream по unix-сокету
 upstream uwsgi_app {
     server unix:/tmp/uwsgi_app.sock;
+    keepalive 16;
 }
 
 server {
     listen 80;
     server_name docere.online www.docere.online;
-    error_log /var/log/nginx/error.log warn;
+
+    server_tokens off;
+    # Общие лимиты/таймауты (чтобы не рвало соединение)
+    client_max_body_size 100M;
+    client_body_timeout 60s;
+    send_timeout 60s;
+    keepalive_timeout 65s;
+
     access_log /var/log/nginx/access.log main;
+    error_log  /var/log/nginx/error.log warn;
 
-    # Проксирование запросов к uWSGI
-    location /api/ {
-        client_max_body_size 100M;
+    # ===== Backend: Django через uWSGI
+    location ~ ^/(api|admin)/ {
         include /etc/nginx/uwsgi_params;
+
+        # Важно: явные таймауты к uWSGI, иначе Nginx может закрыть коннект
+        uwsgi_connect_timeout 10s;
+        uwsgi_read_timeout 300s;
+        uwsgi_send_timeout 60s;
+
+        # Буферы (часто лечат обрывы на больших ответах)
+        uwsgi_buffering on;
+        uwsgi_buffers 16 64k;
+        uwsgi_busy_buffers_size 128k;
+        uwsgi_buffer_size 64k;
+
+        # Проксируем в uWSGI
         uwsgi_pass uwsgi_app;
+
+        # Доп.параметры (иногда критично для корректных заголовков)
+        uwsgi_param Host $host;
+        uwsgi_param X-Real-IP $remote_addr;
+        uwsgi_param X-Forwarded-For $proxy_add_x_forwarded_for;
+        uwsgi_param X-Forwarded-Proto $scheme;
     }
 
-    location /admin/ {
-        include /etc/nginx/uwsgi_params;
-        uwsgi_pass uwsgi_app;
-    }
-
-    # Проксирование запросов на фронтенд
-    location / {
-        root /var/www/react/;
-        index index.html;
-        try_files $uri /index.html;
-    }
-
-
-    # Настройка для статических файлов
+    # ===== Статика/медиа (отдаём напрямую)
     location /static/ {
         alias /code/docere/static/;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
     }
 
-    # Настройка для медиа файлов
     location /media/ {
         alias /code/docere/media/;
+        # медиа лучше не кэшировать агрессивно
+        expires 1h;
+        add_header Cache-Control "public, max-age=3600";
+    }
+
+    # ===== Frontend: React SPA
+    location / {
+        root /var/www/react;
+        index index.html;
+
+        # SPA-роутинг: сначала пытаемся отдать файл, иначе index.html
+        try_files $uri $uri/ /index.html;
+
+        # index.html не кэшируем, чтобы деплои сразу подтягивались
+        location = /index.html {
+            expires -1;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+    }
+
+    # Полезные страницы на случай бэкенд-ошибок
+    error_page 502 503 504 /50x.html;
+    location = /50x.html {
+        internal;
+        return 200 "Upstream temporarily unavailable\n";
     }
 }
