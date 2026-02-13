@@ -1,4 +1,8 @@
+import os
+from decouple import config
+from datetime import timedelta
 from pathlib import Path
+from decouple import config
 
 from django.conf.global_settings import MEDIA_ROOT, MEDIA_URL
 
@@ -6,13 +10,28 @@ from django.conf.global_settings import MEDIA_ROOT, MEDIA_URL
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9w@(7j=w5=#($l9g2@r-6(vtm57)rr9a+$n(33dr5)q4w+cuba'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1']
 
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,12 +41,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
-    'main',
-    'users',
+
+    'main.apps.MainConfig',
     'django.contrib.postgres',
+    'rest_framework',
+    'drf_spectacular',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -52,7 +75,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'users.context_processors.get_main_context',
             ],
         },
     },
@@ -64,10 +86,10 @@ WSGI_APPLICATION = 'docere.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'docere',
-        'USER': 'doc',
-        'PASSWORD': 'docere007',
-        'HOST': 'localhost',
+        'NAME': config('POSTGRES_DB'),
+        'USER': config('POSTGRES_USER'),
+        'PASSWORD': config('POSTGRES_PASSWORD'),
+        'HOST': 'db',
         'PORT': '5432',
     }
 }
@@ -111,3 +133,44 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
+
+# Celery configuration
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+AUTH_USER_MODEL = 'main.User'
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+USERNAME_FIELD = "email"
+REQUIRED_FIELDS = ["username"]
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Docere API',
+    'DESCRIPTION': 'Документация API для фронтенда',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'BearerAuth': []}],
+    'AUTHENTICATION_WHITELIST': [],
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+    },
+}
+
+SPECTACULAR_SETTINGS['SECURITY_SCHEMES'] = {
+    'BearerAuth': {
+        'type': 'http',
+        'scheme': 'bearer',
+        'bearerFormat': 'JWT',
+    },
+}
+
+EVENTHUB_ENABLED = os.getenv("EVENTHUB_ENABLED", "1") == "1"
+EVENTHUB_GRPC_ADDR = os.getenv("EVENTHUB_GRPC_ADDR", "event-hub:50051")
+EVENTHUB_TIMEOUT_SEC = float(os.getenv("EVENTHUB_TIMEOUT_SEC", "5.0"))
